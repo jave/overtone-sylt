@@ -1,0 +1,8 @@
+* Overtone Sylt
+
+Sylt is an environment for collaborative music exploration using
+Overtone.
+
+Sylt means Jam in Swedish. This joke is no worse than the Leiningen
+joke. Well okay, it's worse.
+
