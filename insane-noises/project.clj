@@ -5,4 +5,10 @@
             :url "http://www.eclipse.org/legal/epl-v10.html"}
   :dependencies [[org.clojure/clojure "1.6.0"]
                  [overtone "0.9.1"]]
-  :plugins [[lein-gorilla "0.3.4"]])
+  :plugins [[lein-gorilla "0.3.4"]]
+
+  :repl-options {
+                 :init-ns insane-noises.core
+                 }
+
+  )

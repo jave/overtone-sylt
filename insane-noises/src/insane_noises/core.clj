@@ -126,10 +126,9 @@
 ;;just a workaround because i didnt have stuff cached
 
 ;; #+BEGIN_SRC clojure
-(defn frp [x]
+(defn sfrp [x]
 
-  ;;"/home/joakim/jave/fromchopper20130819/music/drums/test.wav"
-  (freesound-path [x])
+  ;(sample (freesound-path [x]))
   )
 ;; #+END_SRC
 
@@ -141,7 +140,9 @@
 ;; this conflicted, and then it wasnt cached
 
 ;; #+BEGIN_SRC clojure
-(def kick2086 (sample (frp 2086)))
+(def kick2086
+  (sfrp 2086)
+  )
 
 (comment
   (kick)
@@ -454,10 +455,10 @@
 
   )
 (defn dream-inc [] (send dreamidx inc )(dream @dreamidx))
-(def choir (sample (frp 46712)))
-(def choir2 (sample (frp 65801)))
-(def choir3 (load-sample (frp 65801)))
-(def choir4 (load-sample (frp 46712)))
+(def choir (sfrp 46712))
+(def choir2 (sfrp 65801))
+(def choir3 (sfrp 65801))
+(def choir4 (sfrp 46712))
 (definst choir2s []
   (* 64 (play-buf :num-channels 1 :bufnum choir3 :rate 1)))
 

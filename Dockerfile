@@ -7,16 +7,25 @@ RUN wget -q -O /usr/bin/lein \
     && chmod +x /usr/bin/lein
 ENV LEIN_ROOT true
 RUN lein
-ADD insane-noises insane-noises
-RUN cd insane-noises && lein deps
-
 RUN yum -y localinstall --nogpgcheck http://download1.rpmfusion.org/free/fedora/rpmfusion-free-release-$(rpm -E %fedora).noarch.rpm http://download1.rpmfusion.org/nonfree/fedora/rpmfusion-nonfree-release-$(rpm -E %fedora).noarch.rpm
 RUN yum -y install vlc
 # WARNING, horrible hack to enable vlc to run as root!
 RUN sed -i 's/geteuid/getppid/' /usr/bin/vlc
-
 RUN yum -y install jack-audio-connection-kit vlc-plugin-jack
 RUN yum -y install jack-audio-connection-kit-example-clients fftw
-ADD startup.sh startup.sh
 
-CMD startup.sh
+
+ADD insane-noises insane-noises
+RUN cd insane-noises && lein deps
+
+
+ADD startup.sh startup.sh
+#nrepl port
+EXPOSE 32768
+#gorilla port
+EXPOSE 8080
+#rtp port
+EXPOSE 1234
+#rtps port 9999
+EXPOSE 9999
+CMD ./startup.sh

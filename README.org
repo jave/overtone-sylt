@@ -1,8 +1,31 @@
 * Overtone Sylt
 
-Sylt is an environment for collaborative music exploration using
+Sylt is an environment for collaborative noise exploration using
 Overtone.
 
+
+** How does it work?
+
+Overtone, jackd, and vlc are packaged inside a Docker container.
+
+- Overtone manages most of the collaborative noise exploration part.
+Overtone exposes a web-repl, and a nrepl.
+
+- jackd is a dependency ov overtone, and is a sound server
+
+- vlc is used to communicate with jackd from the outside
+
+** Build and run
+docker build -t sylt  . && docker run -p 8080:8080 -p 32768:32768 -p 9999:9999 -p 1234:1234/udp -it sylt 
+
+So theres a bunch of ports. Many ports is much complexity, so the aim
+is to reduce these via proxying if possible.
+
+Listen to the noise with something like:
+mplayer rtsp://localhost:9999/test.sdp
+
+
+** The name
 Sylt means Jam in Swedish. This joke is no worse than the Leiningen
 joke. Well okay, it's worse.
 
