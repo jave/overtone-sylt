@@ -16,7 +16,7 @@ RUN yum -y install jack-audio-connection-kit-example-clients fftw
 
 
 ADD insane-noises insane-noises
-RUN cd insane-noises && lein deps
+#RUN cd insane-noises && lein deps
 
 
 ADD startup.sh startup.sh

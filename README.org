@@ -16,13 +16,24 @@ Overtone exposes a web-repl, and a nrepl.
 - vlc is used to communicate with jackd from the outside
 
 ** Build and run
-docker build -t sylt  . && docker run -p 8080:8080 -p 32768:32768 -p 9999:9999 -p 1234:1234/udp -it sylt 
+- build the docker
+docker build -t sylt  
 
-So theres a bunch of ports. Many ports is much complexity, so the aim
-is to reduce these via proxying if possible.
+- run the docker
+docker run  -v /tmp/m2:/root/.m2/ -p 8080:8080 -p 32768:32768 -p 9999:9999 -p 1234:1234/udp -it sylt
 
-Listen to the noise with something like:
+- start the gorilla repl
+http://127.0.0.1:8080/worksheet.html
+
+- load startup code
+(load-file "/insane-noises/src/insane_noises/core.clj")
+
+- start some noise
+(insane-noises.core/play-drums 100 16)
+
+- Listen to the noise
 mplayer rtsp://localhost:9999/test.sdp
+
 
 
 ** The name
