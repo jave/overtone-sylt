@@ -1,0 +1,16 @@
+;; gorilla-repl.fileformat = 1
+
+;; **
+;;; # Sylt REPL
+;;; 
+;;; Welcome to Sylt!
+;;; 
+;;; 
+;;; 
+;;; Shift + enter evaluates code. Hit alt+g twice in quick succession or click the menu icon (upper-right corner) for more commands ...
+;;; 
+;; **
+
+;; @@
+(load-file "/insane-noises/src/insane_noises/core.clj")
+;; @@
