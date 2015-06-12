@@ -1,7 +1,0 @@
-(ns insane-noises.core-test
-  (:use clojure.test
-        insane-noises.core))
-
-(deftest a-test
-  (testing "FIXME, I fail."
-    (is (= 0 1))))

@@ -15,15 +15,15 @@ RUN yum -y install jack-audio-connection-kit vlc-plugin-jack
 RUN yum -y install jack-audio-connection-kit-example-clients fftw
 
 
-ADD insane-noises insane-noises
+ADD sylt sylt
 #RUN cd insane-noises && lein deps
 
 
 ADD startup.sh startup.sh
 #nrepl port
 EXPOSE 32768
-#gorilla port
-EXPOSE 8080
+#sylt web port including web repl
+EXPOSE 3000
 #rtp port
 EXPOSE 1234
 #rtps port 9999

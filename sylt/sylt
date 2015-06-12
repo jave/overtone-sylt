@@ -1,0 +1,140 @@
+;; gorilla-repl.fileformat = 1
+
+;; **
+;;; # Sylt REPL
+;;; 
+;;; Welcome to Sylt!
+;;; 
+;;; 
+;;; 
+;;; Shift + enter evaluates code. Hit alt+g twice in quick succession or click the menu icon (upper-right corner) for more commands ...
+;;; 
+;; **
+
+;; @@
+(load-file "/sylt/src/insane_noises/core.clj")
+;; @@
+
+;; @@
+(ns insane-noises.core
+  (:use
+   [overtone.live]
+;;  [overtone.core]
+   [overtone.inst synth piano drum]
+   )
+  (:require [me.raynes.conch :as sh])
+  )
+;; @@
+
+;; @@
+  (play-drums 100 16)
+;; @@
+
+;; @@
+  (drum-set-beat amen-beat)
+;; @@
+
+;; @@
+  (drum-set-beat psy-beat)
+;; @@
+
+;; @@
+  (drum-set-beat (drum-reverse-beat psy-beat))  
+;; @@
+
+;; @@
+    (drum-set-beat dnb-beat)
+;; @@
+
+;; @@
+    (drum-set-beat (drum-reverse-beat amen-beat))
+;; @@
+
+;; @@
+  (drum-set-beat dnb-beat)
+;; @@
+
+;; @@
+  (inst-fx! psybass2 fx-chorus)
+;; @@
+
+;; @@
+  (inst-fx! psybass2 fx-reverb)
+;; @@
+
+;; @@
+  (inst-fx! psybass2 fx-echo)
+;; @@
+
+;; @@
+  (clear-fx psybass2)
+;; @@
+
+;; @@
+  (inst-fx!   noise-snare fx-chorus)
+;; @@
+
+;; @@
+  (inst-fx! noise-snare fx-echo)
+;; @@
+
+;; @@
+  (inst-fx!   noise-snare fx-reverb)
+;; @@
+
+;; @@
+  (clear-fx noise-snare)
+;; @@
+
+;; @@
+  (inst-fx!   closed-hat fx-chorus)
+;; @@
+
+;; @@
+  (inst-fx!   open-hat fx-chorus)
+;; @@
+
+;; @@
+  (inst-fx! closed-hat fx-echo)
+;; @@
+
+;; @@
+  (inst-fx!   closed-hat fx-reverb)
+;; @@
+
+;; @@
+  (clear-fx closed-hat)
+;; @@
+
+;; @@
+  (clear-fx open-hat)
+;; @@
+
+;; @@
+  (inst-fx! tom fx-reverb)
+;; @@
+
+;; @@
+  (clear-fx tom )
+;; @@
+
+;; @@
+  (inst-fx! hat-demo fx-echo)
+;; @@
+
+;; @@
+  (dubstep 25)
+;; @@
+
+;; @@
+  (kill dubstep)
+;; @@
+
+;; @@
+  (ctl dubstep :wobble-freq
+       (choose [4 6 8 16]))
+;; @@
+
+;; @@
+  (stop)
+;; @@

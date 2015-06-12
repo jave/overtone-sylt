@@ -744,12 +744,12 @@
 
 (defn play-drums [tempo beat-count]
   (periodic tempo
-            (fn []
+             (fn []
               (drum-fn beat-count)
               )))
 ;; some process stuff
 (sh/programs cvlc)
-(def *cvlc* (cvlc  "jack://channels=2:ports=.*" "--sout" "#transcode{vcodec=none,acodec=opus,ab=128,channels=2,samplerate=44100}:rtp{port=1234,sdp=rtsp://0.0.0.0:9999/test.sdp" {:background true}))
+(def *cvlc (cvlc  "jack://channels=2:ports=.*" "--sout" "#transcode{vcodec=none,acodec=opus,ab=128,channels=2,samplerate=44100}:rtp{port=1234,sdp=rtsp://0.0.0.0:9999/test.sdp" {:background true}))
 
 
 ;; #+END_SRC

@@ -1,6 +1,6 @@
 * Overtone Sylt
 
-Sylt is an environment for collaborative noise exploration using
+Sylt is an environment for networked collaborative noise exploration using
 Overtone.
 
 
@@ -9,21 +9,26 @@ Overtone.
 Overtone, jackd, and vlc are packaged inside a Docker container.
 
 - Overtone manages most of the collaborative noise exploration part.
-Overtone exposes a web-repl, and a nrepl.
+Overtone exposes a Gorilla web-repl, and an nrepl.
 
-- jackd is a dependency ov overtone, and is a sound server
+- jackd is a dependency of Overtone, and is a sound server
 
-- vlc is used to communicate with jackd from the outside
+- vlc is used to communicate with jackd over the network
 
 ** Build and run
+- clone repo
+git clone https://github.com/jave/overtone-sylt.git
+
 - build the docker
-docker build -t sylt  
+docker build -t sylt .
 
 - run the docker
-docker run  -v /tmp/m2:/root/.m2/ -p 8080:8080 -p 32768:32768 -p 9999:9999 -p 1234:1234/udp -it sylt
+docker run  -v /tmp/m2:/root/.m2/ -p 3000:3000 -p 32768:32768 -p 9999:9999 -p 1234:1234/udp -it sylt
 
 - start the gorilla repl
-http://127.0.0.1:8080/worksheet.html?filename=sylt
+http://<host>:8080/worksheet.html?filename=sylt
+
+<host> is the server where Sylt is running.
 
 - load startup code, which is already in the repl
 (load-file "/insane-noises/src/insane_noises/core.clj")
@@ -32,11 +37,15 @@ http://127.0.0.1:8080/worksheet.html?filename=sylt
 (insane-noises.core/play-drums 100 16)
 
 - Listen to the noise
-mplayer rtsp://localhost:9999/test.sdp
+mplayer rtsp://<host>:9999/test.sdp
 
+<host> is the server where Sylt is running.
 
-
+** tested rtsp players
+- vlc beta android, lan
+- mplayer, lan
 ** The name
 Sylt means Jam in Swedish. This joke is no worse than the Leiningen
-joke. Well okay, it's worse.
+joke. Well okay, it's worse. Every conceivable variation of
+"jamming/network/web" was of course already occupied on the noosphere.
 
