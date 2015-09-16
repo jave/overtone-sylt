@@ -41,6 +41,14 @@ mplayer rtsp://<host>:9999/test.sdp
 
 <host> is the server where Sylt is running.
 
+** building janus
+
+** running with janus
+
+# start janus
+docker run -it -p 5002:5002/tcp -p 5002:5002/udp -p 5004:5004/tcp -p 8088:8088/tcp -p 7088:7088/tcp -p 5004:5004/udp -p 8188:8188/tcp f18e   /opt/janus/bin/janus -p 8088 -S stun.ekiga.net
+
+
 ** tested rtsp players
 - vlc beta android, lan
 - mplayer, lan
