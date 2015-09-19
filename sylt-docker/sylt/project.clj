@@ -18,7 +18,7 @@
                  [prone "0.8.2"]
                  [org.clojure/tools.nrepl "0.2.10"]
                  [lein-gorilla "0.3.4"]
-                 [overtone "0.9.1"]
+                 [overtone "0.10-SNAPSHOT"]
                  [me.raynes/conch "0.8.0"]
                  [http-kit "2.1.19"]]
 
