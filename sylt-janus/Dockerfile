@@ -20,3 +20,4 @@ RUN  cd janus-gateway && make configs install
 
 # add janus configuration
 #ADD janus.cfg /etc/janus/janus.cfg
+CMD /opt/janus/bin/janus -p 8088 -S stun.ekiga.net
