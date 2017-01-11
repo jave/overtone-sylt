@@ -3,7 +3,7 @@
   :description "FIXME: write description"
   :url "http://example.com/FIXME"
 
-  :dependencies [[org.clojure/clojure "1.7.0-RC1"]
+  :dependencies [[org.clojure/clojure "1.7.0"]
                  [selmer "0.8.2"]
                  [com.taoensso/timbre "3.4.0"]
                  [com.taoensso/tower "3.0.2"]
@@ -18,7 +18,7 @@
                  [prone "0.8.2"]
                  [org.clojure/tools.nrepl "0.2.10"]
                  [lein-gorilla "0.3.4"]
-                 [overtone "0.10-SNAPSHOT"]
+                 [overtone "0.10.1"]
                  [me.raynes/conch "0.8.0"]
                  [http-kit "2.1.19"]]
 
