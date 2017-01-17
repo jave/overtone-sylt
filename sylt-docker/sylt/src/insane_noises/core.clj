@@ -853,11 +853,11 @@
 
 
                                         ;;(def organ-sample (load-sample "~/samples/organ.wav"))
-(def organ-sample (load-sample "/home/joakim/smurf.wav"))
-(def orgloop (sample "/home/joakim/smurf.wav"))
-                                        ;(orgloop)
-                                        ;(stop)
-(def dr1 (load-sample   "/home/joakim/am_i_alive_all/am_i_alive/01.wav"))
+;; (def organ-sample (load-sample "/home/joakim/smurf.wav"))
+;; (def orgloop (sample "/home/joakim/smurf.wav"))
+;;                                         ;(orgloop)
+;;                                         ;(stop)
+;; (def dr1 (load-sample   "/home/joakim/am_i_alive_all/am_i_alive/01.wav"))
 ;(def glasscrash (sample (frp 221528)))
                                         ;(play-buf 1 organ-sample)
 (def glasscrashsample (load-sample (frp 221528)))
@@ -1463,7 +1463,186 @@
   ;; mute a voice
   ;; somehow allow more patterns for a voice(perhaps with syms like :B:2
   (overtone.helpers.string/split-on-char (name :b:2) ":")  
+  )
+
+
+;;;; new insts 20170112
+(definst radio [ freq  440 amp  0.5 gate  1]
+  (let 
+      [oscfreq  (repeat 3 (* freq (lin-lin (lf-noise2:kr 0.5) 0.98 1.02))) ; !3, seems to mean repeat 3 times? weird
+       snd      (splay (* (lf-saw oscfreq ) amp))
+       env      (env-gen (adsr 0.7 4 0 0.1) :action FREE)
+       output   (lpf snd (+ (* env freq) (* 2 freq)))
+       ] [output output]))
+
+
+
+;;http://sccode.org/1-523
+(definst electro-kick [out  0 pan  0 amp  0.3]
+  (let
+      [bodyFreq (env-gen (envelope [261 120 51] [0.035 0.08] :exp))
+       bodyAmp (env-gen (lin 0.005 0.1 0.3 ):action FREE)
+       body (* (sin-osc bodyFreq)  bodyAmp)
+
+       popFreq (x-line:kr 750, 261, 0.02)
+       popAmp (* (env-gen (lin 0.001 0.02 0.001))  0.15 )
+       pop  (* (sin-osc popFreq) popAmp)
+
+       clickAmp (* ( env-gen (perc 0.001 0.01)) 0.15)
+       click    (* (lpf (formant 910 4760 2110) 3140)  clickAmp)
+
+       snd (tanh (+  body pop click))
+       ]
+    [snd snd]))
+
+
+(definst electro-hat
+    [out  0, pan 0, amp  0.3]
+
+  ;;// noise -> resonance -> expodec envelope
+  (let
+      [noiseAmp  (env-gen (perc 0.001, 0.3, :curve -8) :action FREE)
+       noise (* (mix (bpf  (clip-noise)   [4010, 4151]
+                                    [0.15, 0.56]
+                                   ;;[1.0, 0.6] ;;why doeesnt this work?
+                                   ))
+                0.7  noiseAmp)
+
+       snd  noise]
+    [snd snd]))
+
+
+(definst electro-clap [out  0 amp  0.5 pan  0 dur  1]
+  (let
+      [env1   (env-gen   (envelope
+            [0, 1, 0, 0.9, 0, 0.7, 0, 0.5, 0],
+            [0.001, 0.009, 0, 0.008, 0, 0.01, 0, 0.03],
+            [0, -3, 0, -3, 0, -3, 0, -4]) :action FREE)
+       noise1 (bpf (lpf (hpf (*  env1 (white-noise)) 600) (x-line 7200, 4000, 0.03)) 1620 3)
+
+       env2 ( env-gen (envelope [0, 1, 0], [0.02, 0.18], [0, -4]))
+       noise2  (bpf (lpf (hpf (*  env2 (white-noise)) 1000) 7600) 1230 0.7 ;0.7
+                    )
+       ]
+    (softclip (* 2 (+ noise1 noise2)))
+  ))
+
+(defn loop-beats [time]
+  (at (+    0 time)  (electro-hat)(electro-kick) )
+  (at (+  200 time) (electro-hat)  )
+  (at (+  100 time) (electro-hat)  )  
+  (at (+  400 time) (electro-hat)  )
+  (at (+  600 time) (electro-hat)  )
+  (at (+  800 time)   (electro-hat)(electro-kick) )
+  (at (+  1000 time) (electro-hat)  )  
+  (at (+ 1200 time)(electro-clap) (electro-hat)  )
+  (at (+  1400 time) (electro-hat)  )    
+  (apply-at (+ 1600 time) loop-beats (+ 1600 time) []))
+
+(comment
+  (loop-beats (now))
+  )
+
+;;debug leaky inst
+;; hat fail after a while, kick as well, clap as well!
+;; tstbass fails, does anything not fail=
+;; (defn loop-beats [time]
+;;   (at (+    0 time)  (tstbass) )
+;;   (apply-at (+ 50 time) loop-beats (+ 50 time) []))
+
+
+;;questions:
+;; - bpf last arg
+;; - get after a while: FAILURE /s_new too many nodes, so im missing some reclamation
+
+;; some other basses
+
+(definst tstbass [atk 0.01, dur 0.15, freq 50, amp 0.8]
+
+  (* (bpf (lf-saw freq), freq, 2)  (env-gen(perc atk, dur, amp, 6 )))
+  )
+
+
+
+(definst bazz[ dur 0.15, freq 50, amp 0.8, index 10 ]
+  (* (pm-osc freq, (+ freq  5), index) (env-gen(triangle dur ))))
+
+
+(definst basicfm [out  0, gate  1, amp  1, carFreq  1000, modFreq  100, modAmount  2000, clipAmount  0.1]
+  (let [modEnv (env-gen (adsr 0.5 0.5 0.7 0.1 :peak-level modAmount) gate)
+        mod (* (sin-osc modFreq) modEnv)
+        car (+ mod (sin-osc carFreq))
+        ampEnv (env-gen (adsr 0.1, 0.3, 0.7, 0.2, :peak-level amp) gate )
+        clipv (* clipAmount 500)
+                                        ;snd (clip (* car ampEnv clipv) -0.7 0.7)
+        snd (* 0.1 (clip:ar (* car ampEnv clipv) -0.7 0.7))
+        ]
+    [snd snd]
+        ))
+
+;; SynthDef(\vocali, { arg f1, f2, fund = 70, amp = 0.25 ;
+;; 		var source = Saw.ar(fund);
+;; 		var vowel = Normalizer.ar(BPF.ar(source, f1, 0.1))
+;; 		+
+;; 		Normalizer.ar(BPF.ar(source, f2, 0.1))
+;; 		* amp ;
+;; 		Out.ar(0, vowel.dup)
+;; 	}).add ;
+;; \i:[2300, 300], \e: [2150, 440], \E: [1830, 580],
+;; 		\a: [1620, 780], \O: [900, 580], \o: [730, 440],
+;; 		\u: [780, 290],\y: [1750, 300],\oe: [1600, 440],
+;; 		\OE: [1400, 580]
+
+
+
+(def vocali-x {:i [2300, 300], :e [2150, 440], :E [1830, 580],
+ 		:a [1620, 780], :O [900, 580], :o [730, 440],
+ 		:u [780, 290], :y [1750, 300],:oe [1600, 440],
+ 		:OE [1400, 580]})
+
+
+
+
+
+(definst vocali [f1 2300 f2 300   fund 70 amp 0.25]
+  (let [
+        src (saw fund)
+        env (env-gen (perc 0.01 0.3) :action FREE)
+        vowel (* env amp (+ (normalizer (bpf src f1 0.1))
+                        (normalizer (bpf src f1 0.1))))
+        ]
+    [vowel vowel])
+        
+  )
+
+(defn vocali2 [x fund amp]
+  (let [[f1 f2] (get  vocali-x x)
+        ]
+    (vocali f1 f2 fund amp)
+    )
 )
+;;(vocali2 :i 70 0.25)  
+(defn loop-beats [time]
+  (at (+    0 time)  (vocali2 :a 70 0.25)(electro-hat)(electro-kick) )
+  (at (+  200 time) (vocali2 :e 70 0.25)(electro-hat)  )
+  (at (+  100 time) (vocali2 :i 70 0.25)(electro-hat)  )  
+  (at (+  400 time) (vocali2 :E 70 0.25)(electro-hat)  )
+  (at (+  600 time) (vocali2 :OE 70 0.25)(electro-hat)  )
+  (at (+  800 time)   (vocali2 :y 70 0.25)(electro-hat)(electro-kick) )
+  (at (+  1000 time) (vocali2 :u 70 0.25)(electro-hat)  )  
+  (at (+ 1200 time) (vocali2 :o 70 0.25)( electro-clap) (electro-hat)  )
+  (at (+  1400 time) (vocali2 :a 70 0.25)(electro-hat)  )    
+  (apply-at (+ 1600 time) loop-beats (+ 1600 time) []))
+
+(comment
+  (loop-beats (now))
+)
+
+;;;;;;;       
+
+
+
+
 ;; some process stuff for use in the networked case
 (sh/programs cvlc)
 (def *cvlc (cvlc  "jack://channels=2:ports=.*" "--sout" "#transcode{vcodec=none,acodec=opus,ab=128,channels=2,samplerate=44100}:rtp{port=1234,sdp=rtsp://0.0.0.0:9999/test.sdp" {:background true}))
