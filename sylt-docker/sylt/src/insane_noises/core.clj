@@ -583,7 +583,7 @@
 ;; * dnb and amen beats
 ;; here i want some simple drum machine code to play with.
 
-;; you can find lots of drum patterns on wikipedia, and you can convert them rather easily to liasp constructs.
+;; you can find lots of drum patterns on wikipedia, and you can convert them rather easily to lisp constructs.
 
 ;; then i combined with my other instruments to to form ... something.
 
@@ -741,13 +741,14 @@
 ;; #+BEGIN_SRC clojure
 
 (defn drum-reverse-beat [pattern]
+  "reverse PATTERN"
   (map #(list (first %) (reverse (second %)) ) pattern))
 
 (defn drum [voice pattern]
   (dosync (alter *beat conj [voice pattern])))
 
 (defn get-drum-fn [voice]
-  "get the drum function for the voice"
+  "get the drum function for VOICE, from the current drum kit in *drums"
 
   (let* [voice1
          (if (map? voice)
@@ -761,41 +762,70 @@
          )))
 
 (defn clear-drums []
+  "clear out the drum kit"
   (dosync (ref-set *beat [])))
 
 
-
-;;allows for voice patterns of different length
-;;undefined voices are dropped
-(defn drum-fn2 []
-              (let [i   @*beat-count]
-                (doseq [[voice pattern]
-                        @*beat
-                        ]
-                  (let* [index (mod i (count pattern) )
-                        drum (get-drum-fn voice)]
-                  (if (and drum (not (= '- (nth pattern index))))
-                    (do
-                      (apply drum [(nth pattern  index)])
-                      )
-                     )
-                  ))
-                (dosync (ref-set *beat-count (inc @*beat-count) ))))
-
-
-
-
-;;play drums using a metronome strategy, which has advantages over the periodic strategy
-(defn play-drums-metro [m beat-num]
-  ;; reschedule next call to the sequencer
-  (apply-at (m (+ 1 beat-num))
-            play-drums-metro
-            m
-            (+ 1 beat-num)
-            [])
-  ;; schedule the drum voice
-  (at (m beat-num)(drum-fn2))
+(defn drum-fn-globalbeat []
+  (drum-fn  @*beat @*beat-count)
+  
   )
+
+(defn drum-fn [beat beat-count]
+  "take a vertical slice out of BEAT, at BEAT-COUNT, and play this slice
+allows for voice patterns of different length
+undefined voices are dropped"
+  (doseq [[voice pattern] beat] ;; map over each voice/pattern pair
+    (let* [index (mod beat-count (count pattern) ) ;; *beat-count is global counter, make index modulo pattern length
+           drum (get-drum-fn voice)] ;;figure out the drum function for the voice
+      (if (and drum (not (= '- (nth pattern index)))) ;;play the drum if there a) is a drum and b) the pattern contains something that isnt "-"
+        (do
+          (apply drum [(nth pattern  index)]) ;; play it yay!
+          )
+        )
+      ))
+
+
+
+
+
+
+  (defn play-drums-metro [m beat-num]
+    "start playing drums, using m as metro"
+    ;;play drums using a metronome strategy, which has advantages over the periodic strategy
+    ;; 1st reschedule next call to the sequencer
+    (apply-at (m (+ 1 beat-num))
+              play-drums-metro
+              m
+              (+ 1 beat-num)
+              [])
+    ;; 2nd schedule the drum voice
+    (at (m beat-num)(drum-fn-globalbeat))
+    ;;3d step global counters
+    (dosync (ref-set *beat-count (inc @*beat-count) ))
+    ))
+
+  (defn play-drums-once [m beat-num beat count-cur count-end]
+    "start playing drums, using m as metro"
+      (if (> count-end count-cur)
+        (do
+          (println beat-num)
+          (apply-at (m (inc beat-num))
+                    play-drums-once
+                    m
+                    (inc beat-num)
+                    beat
+                    (inc count-cur)
+                    count-end
+                    [])
+          ;; 2nd schedule the drum voice
+          (at (m beat-num)(drum-fn beat count-cur))
+
+          )
+        )
+    
+
+    ))
 
 ;; a totaly different kind of song, Revenue Inspector!
 (comment
@@ -1529,8 +1559,8 @@
 
 (defn loop-beats [time]
   (at (+    0 time)  (electro-hat)(electro-kick) )
-  (at (+  200 time) (electro-hat)  )
   (at (+  100 time) (electro-hat)  )  
+  (at (+  200 time) (electro-hat)  )
   (at (+  400 time) (electro-hat)  )
   (at (+  600 time) (electro-hat)  )
   (at (+  800 time)   (electro-hat)(electro-kick) )
@@ -1539,8 +1569,25 @@
   (at (+  1400 time) (electro-hat)  )    
   (apply-at (+ 1600 time) loop-beats (+ 1600 time) []))
 
+
+(drum-set-drums {
+                 :H (fn [x] (if (= 'c x)(electro-hat) (open-hat)))
+                 :B (fn [x] (electro-kick))
+                 :C (fn [x] (electro-clap))
+                 })
+
+(drum-set-beat
+ {
+  :H '[c c c -  c - c -  c - c -  c - c -]
+  :B '[c - - -  - - - -  c - - -  - - - -]
+  :C '[- - - -  - - - -  - - - -  c - - -]
+  })
+
 (comment
   (loop-beats (now))
+  (stop)
+  (metro :bpm 600)
+  (play-drums-metro metro (metro))
   )
 
 ;;debug leaky inst
@@ -1607,9 +1654,9 @@
 (definst vocali [f1 2300 f2 300   fund 70 amp 0.25]
   (let [
         src (saw fund)
-        env (env-gen (perc 0.01 0.3) :action FREE)
-        vowel (* env amp (+ (normalizer (bpf src f1 0.1))
-                        (normalizer (bpf src f1 0.1))))
+        env (env-gen (perc 0.01 0.5) :action FREE)
+        vowel (* env amp (+ (normalizer (bpf src f1 0.09))
+                            (normalizer (bpf src f2 0.09))))
         ]
     [vowel vowel])
         
@@ -1634,14 +1681,183 @@
   (at (+  1400 time) (vocali2 :a 70 0.25)(electro-hat)  )    
   (apply-at (+ 1600 time) loop-beats (+ 1600 time) []))
 
+(drum-set-drums {
+                 :V (fn [x] (vocali2 x 70 0.5))
+                 :B (fn [x] (electro-kick))
+                 :H (fn [x] (electro-hat))
+                 })
+(drum-set-beat  {
+                 :V '[:a :i :o :O :E :e :OE :y :u :oe ]
+               :B '[x - ]
+                 :H '[x]
+                 })
+;; (play-drums-metro metro (metro))
+;;   (metro :bpm 200)
+;; chorus + echo on the vocali, sounds interesting
+
+;;sounds pleasant with echo
+(definst my-formant [fund 100]
+  (let
+      [
+       src1 (formant fund (x-line 2000 400 ) 200)
+       src2 (formant fund (x-line 2000 400 ) 400)
+       env (env-gen (perc 0.01 0.8) :action FREE)
+       ]
+  [ (* env src1) (* env src2) ]))
+
 (comment
   (loop-beats (now))
+  (demo  (formlet (impulse:ar 50, 0.0) (mouse-x:kr 300 3000) 0.01 (mouse-x:kr 0.1 1.0)))
+  (stop)
 )
+
+(definst myformlet [freq 50 phase 0.5]
+  (let
+      [        env (env-gen (perc 0.01 0.5) :action FREE)
+       src (impulse:ar freq, phase ) 
+       src (formlet  src 300 0.01 0.1)
+       src (* env src)
+       ]
+    [src src]
+  ))
+
+
+;; SynthDef(\risset, {|out = 0, pan = 0, freq = 400, amp = 0.1, dur = 2, gate = 1|
+;; 		var amps = #[1, 0.67, 1, 1.8, 2.67, 1.67, 1.46, 1.33, 1.33, 1, 1.33];
+;; 		var durs = #[1, 0.9, 0.65, 0.55, 0.325, 0.35, 0.25, 0.2, 0.15, 0.1, 0.075];
+;; 		var frqs = #[0.56, 0.56, 0.92, 0.92, 1.19, 1.7, 2, 2.74, 3, 3.76, 4.07];
+;; 		var dets = #[0, 1, 0, 1.7, 0, 0, 0, 0, 0, 0, 0];
+;; 		var doneActionEnv = EnvGen.ar(Env.linen(0, dur, 0), gate, doneAction: 2);
+;; 		var src = Mix.fill(11, {|i|
+;; 			var env = EnvGen.ar(Env.perc(0.005, dur*durs[i], amps[i], -4.5), gate);
+;; 			SinOsc.ar(freq*frqs[i] + dets[i], 0, amp*env);
+;; 		});
+;; 		src = src * doneActionEnv * 0.5; // make sure it releases node after the end.
+;; 		Out.ar(out, Pan2.ar(src, pan));
+;; 	}).add;
+
+(definst risset [out  0, pan  0, freq  400, amp  0.1, dur  2, gate  1]
+  (let
+      [
+       amps  [1, 0.67, 1, 1.8, 2.67, 1.67, 1.46, 1.33, 1.33, 1, 1.33]
+       durs  [1, 0.9, 0.65, 0.55, 0.325, 0.35, 0.25, 0.2, 0.15, 0.1, 0.075]
+       frqs  [0.56, 0.56, 0.92, 0.92, 1.19, 1.7, 2, 2.74, 3, 3.76, 4.07]
+       dets  [0, 1, 0, 1.7, 0, 0, 0, 0, 0, 0, 0]
+       doneActionEnv  (env-gen(lin 0, dur, 0), gate, :action FREE)
+
+
+       src  (mix (map (fn [ampi duri frqsi detsi]
+                        (* amp (env-gen(perc 0.005, (* dur duri), ampi, -4.5), gate)
+                           (sin-osc (+ (* freq frqsi)  detsi, 0, (* amp 0.1))))) ;;0.1 should be amp
+                      amps durs frqs dets))
+       src (* doneActionEnv src 0.5)
+       ]
+    [src src]
+    ))
+;;sounds nice with some echo and chorus
+;;(risset :freq 100 :amp 0.5)(risset :freq 800 :amp 0.1)
 
 ;;;;;;;       
 
+;; playing with sync-saw
+;;(demo [(sync-saw 50 (* 50 (line 1 1.5 1)) ) (sync-saw 51 (* 51 (line 1 1.5 1)) )])
 
+;; i want to make a string sound
+;;https://www.attackmagazine.com/technique/tutorials/analogue-style-string-synthesis/2/
+;; my attempt sounds nothing like theirs :( but it sounds nice anyway
+(definst mystr [freq 440]
+  (let
+      [fenv   (env-gen (perc 0.5 5) :action FREE)
+       freqlfo  (lin-lin (lf-tri:kr  3.4) -1 1 1 1.01)
+       apulsel (pulse:ar (* freqlfo freq) (lin-lin (sin-osc:kr 6) -1 1 0.5 0.6  ))
+       apulser (pulse:ar (* freqlfo freq) (lin-lin (sin-osc:kr 6) -1 1 0.5 0.8  ))       
+       asaw1 (lf-tri:ar (* 2 (* freqlfo freq)))
+       asaw2 (lf-tri:ar (/ (* freqlfo freq) 2))
+       srcl (+  (* 0.1 asaw1)  (* 0.1 asaw1)
+               apulsel)
+       srcr (+  (* 0.1 asaw1)  (* 0.1 asaw1)
+               apulser)
 
+       srcl (rlpf srcl (* fenv 1500) 2 )
+       srcr (rlpf srcr (* fenv 1500) 2 )
+       ]
+    [srcl srcr]))
+
+  (defn mystr2 [f] (mystr f)(mystr (* 2 f))(mystr (* 4 f) )(mystr (* 8 f)))
+(comment
+  (inst-fx! mystr fx-chorus)
+  (inst-fx! mystr fx-echo)
+
+  
+  (mystr2 50)
+  (mystr2 150)
+  (mystr2 100)
+    )
+  
+;;(demo (+ (* 0.1 (saw:ar 880))(rlpf (pulse:ar 440 (lin-lin (sin-osc:kr 6) -1 1 0.5 0.55  )) 1500 1 )))
+
+;;now i want a rim shot
+;; https://www.freesound.org/people/Sajmund/sounds/132418/
+(definst rimshot
+  [;freq   100
+   amp    0.3
+   decay  0.1]
+  (let [env  (env-gen (adsr-ng :attack 0 :attack-level 1 :decay 0.1 :level 0.01 :sustain 0.001 :release 2 ) :action FREE)
+        fenv (lin-lin env 1 0 1800 1);(* freq 1.5) (/ freq 1.5))
+        snd0 (white-noise);(white-noise:ar)
+        snd (lpf snd0 fenv)
+        snd1 (* 0.1 (bpf snd0 300 4))
+        snd2 (* 0.1 (bpf snd0 1000 4))
+        snd3 (* 0.1 (bpf snd0 1800 4))
+
+        ]
+    (* (+ snd
+          snd1
+         snd2
+        snd3
+          ) env amp)))
+
+;; now i want to make a sound like a percussive bass, with a certain freq env
+(definst tsts [freq 110]
+  (let [
+        env  (env-gen (perc 0.01 0.5)  :action FREE)
+        fenv (env-gen (lin 0.5 0.5 0.5 0.5))
+        src  (pulse:ar freq fenv)
+        src2  (formlet src (/ freq 2) 0.01 0.05)
+        src (+ (* 0.5 src2) src)
+        src  (* env src)
+
+        ]
+    [src src]
+    ))
+(drum-set-drums {
+                 :V (fn [x] (tsts (/  x 1)))
+                 :B (fn [x] (electro-kick) (dance-kick))
+                 ;:H (fn [x] (electro-hat))
+
+                 :H (fn [x] (cond
+                             (= 'c x)(electro-hat)
+                             (= 'r x) (apply (choose [ (fn [] (closed-hat))(fn [] (open-hat)) (fn [] (hat-demo)) ]) [])
+                             :else (open-hat)))
+                 :V2 (fn [x] (bass x))
+                 
+                 })
+(drum-set-beat  {
+                 :V '[110 220 440 ]
+                 :B '[x - ]
+                 :H '[c c r]
+                 })
+;;some echo and chorus on tsts and your good!
+(comment
+  (play-drums-metro metro (metro))
+  (metro :bpm 200)
+
+  (play-drums-once metro (metro) {
+                                  :V2 '[ 220 440 880]
+                                  :H '[c c r]
+                                  } 0 4)
+  (stop)
+)
 
 ;; some process stuff for use in the networked case
 (sh/programs cvlc)
