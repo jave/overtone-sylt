@@ -593,8 +593,8 @@
 ;;the dummy beat thing is a workaround, because i really wanted some kind of forward declaration
 (def dummy-beat)
 (def *beat (ref dummy-beat))
-
 (def *beat-count (ref 0))
+(defonce *metro (ref (metronome 240)))
 
 (defn drum-set-beat [beat]
   (dosync (ref-set *beat beat)))
@@ -687,9 +687,9 @@
 
 
 (comment
-  (metro :bpm 400)
+  (@*metro :bpm 400)
   (drum-set-drums my-drums)
-  (play-drums-metro metro (metro))
+  (play-drums-metro)
   (drum-set-beat amen-beat)
   (drum-set-drums my-drums)
   (drum-set-beat psy-beat)
@@ -794,24 +794,31 @@ undefined voices are dropped"
   
   )
 
-(defn play-drums-metro [m beat-num]
-  "start playing drums, using m as metro"
-  ;;play drums using a metronome strategy, which has advantages over the periodic strategy
-  ;; 1st reschedule next call to the sequencer
+(defn play-drums-metro2 [m beat-num]
+   "start playing drums, using m as metro"
+   ;;play drums using a metronome strategy, which has advantages over the periodic strategy
+   ;; 1st reschedule next call to the sequencer
   (apply-at (m (+ 1 beat-num))
-            play-drums-metro
+            play-drums-metro-old
             m
             (+ 1 beat-num)
             [])
   ;; 2nd schedule the drum voice
   (at (m beat-num)(drum-fn-globalbeat))
-  ;;3d step global counters
+   ;;3d step global counters
   (dosync (ref-set *beat-count (inc @*beat-count) ))
   )
+;;(defonce metro  (metronome 240))
+;;(stop)
+;;(play-drums-metro-old metro (metro))
+;;(play-drums-metro-old @*metro (@*metro))
 
+(defn play-drums-metro []
+  (play-drums-metro2 @*metro (@*metro)))
 
-
-
+;;(play-drums-metro)
+;;    (@*metro :bpm 250)
+;;(stop)
 
 (defn beat-max-len [beat]
   "the bars can be different lengths in a beat, so figure out the longest one"
@@ -844,10 +851,22 @@ undefined voices are dropped"
   
 
   )
-(defn play-drums-once [m beat-num beat]
-  (play-drums-once2 m beat-num beat 0 (beat-max-len beat))
+
+
+
+(defn play-drums-once [beat]
+  (play-drums-once2 @*metro (@*metro) beat 0 (beat-max-len beat))
 
   )
+
+(comment
+    (@*metro :bpm 250)
+    (play-drums-once {
+                      ;;:V2 '[ 220 440 880]
+                      :B '[x x x x x x x x]
+                    :H '[ r]
+                    } )
+)
 
 
 ;; (beat-max-len {:A '[a b] :B '[c d e] :C '[d]})
@@ -935,9 +954,9 @@ undefined voices are dropped"
     (glasscrash)
     (drum-set-beat silent-beat)
     ;;(play-drums 100 16)
-    (metro :bpm 500)
+    (@*metro :bpm 500)
     (drum-set-drums my-drums)
-    (play-drums-metro metro (metro))
+    (play-drums-metro)
 
     )
 
@@ -1113,8 +1132,8 @@ undefined voices are dropped"
   (drum-set-beat wasteland-beat)
   (drum-set-drums wasteland-drums)
   ;;  (play-drums 200 32)
-  (metro :bpm 300)
-  (play-drums-metro metro (metro))
+  (*@metro :bpm 300)
+  (play-drums-metro)
                                         ;(play-drums 200 33)
   ;;120 is nice, and 200 is also nice
   (stop)
@@ -1243,8 +1262,8 @@ undefined voices are dropped"
   (drum-set-beat dnb-beat)
   (drum-set-beat wasteland-beat)
   ;;  (play-drums 200 16)
-  (metro :bpm 400)
-  (play-drums-metro metro (metro))
+  (@*metro :bpm 400)
+  (play-drums-metro)
 
   (drum-set-beat lockstep-beat)
   (drum-set-drums lockstep-drums)
@@ -1393,12 +1412,12 @@ undefined voices are dropped"
   (clear-fx psybass3 )
   
   ;; use metronome strategy
-  (metro :bpm 250)
-  (metro :bpm 300)
-  (metro :bpm 400)
-  (metro :bpm 4000)
+  (@*metro :bpm 250)
+  (@*metro :bpm 300)
+  (@*metro :bpm 400)
+  (@*metro :bpm 4000)
   ;;what does even the bpm mean?
-  (play-drums-metro metro (metro))
+  (play-drums-metro)
 
   (cs80lead :freq 110 :fatt 0.9)
   (ctl cs80lead :freq 220 )
@@ -1457,7 +1476,7 @@ undefined voices are dropped"
 
   (drum-set-beat  {
                    :H  '[ c r - -   c - c c   - c - -  c - - -]
-                   ;;              :H2  '[ r r r - - - - - - - r r r - -  ]
+                                 :H2  '[ r r r - - - - - - - r r r - -  ]
                    ;;            :H2  '[ r  ]
                    ;;               :S  '[ - - - 0 - - - - - - - 0 - - - ]
                    ;;              :H  '[ c 0 c ]
@@ -1613,8 +1632,8 @@ undefined voices are dropped"
 (comment
   (loop-beats (now))
   (stop)
-  (metro :bpm 600)
-  (play-drums-metro metro (metro))
+  (@*metro :bpm 600)
+  (play-drums-metro)
   )
 
 ;;debug leaky inst
@@ -1718,8 +1737,8 @@ undefined voices are dropped"
                  :B '[x - ]
                  :H '[x]
                  })
-;; (play-drums-metro metro (metro))
-;;   (metro :bpm 200)
+;; (play-drums-metro)
+;;   (@*metro :bpm 200)
 ;; chorus + echo on the vocali, sounds interesting
 
 ;;sounds pleasant with echo
@@ -1877,14 +1896,14 @@ undefined voices are dropped"
                  :V '[110 220 440 ]
                  :B '[x - ]
                  :H '[c c r]
-                 :V2 '[110 110 110 55 -]
+                 :V2 '[110 110 110 55 -  110 55 -]
                  :S '[- - - x]
                  :m '[[a 1] [b 2] [c 3]]
                  })
 ;;some echo and chorus on tsts and your good!
 (comment
-  (play-drums-metro metro (metro))
-  (metro :bpm 250)
+  (play-drums-metro)
+  (@*metro :bpm 500)
   (inst-fx! tsts fx-echo)
   (inst-fx! tsts fx-chorus)
 
@@ -1893,11 +1912,41 @@ undefined voices are dropped"
   (ctl cs80lead :freq 110)
   (inst-fx! cs80lead fx-chorus)
   (kill cs80lead)
-  (play-drums-once metro (metro) {
-                                  :V2 '[ 220 440 880]
-                                  :H '[c c r]
-                                  } )
+  (play-drums-once {
+                    :V2 '[ 220 440 880]
+                    :H '[c c r]
+                    } )
   (stop)
+  )
+
+
+
+(drum-set-drums {
+                 :B (fn [x] (electro-kick) (dance-kick)
+                      )
+                 :H (fn [x] (cond
+                             (= 'c x)(electro-hat)
+                             (= 'o x)(open-hat :amp 1 :t 0.1 :low 10000 :hi  2000  )
+                             (= 'r x) (apply (choose [ (fn [] (closed-hat))(fn [] (open-hat)) (fn [] (hat-demo)) ]) [])
+                             :else (open-hat)))
+                 :V2 (fn [x] (buzz x :dur 20))
+                 :V3 (fn [x] (vocali2 x 53 2 )  (vocali2 x 55 2 ))
+                 :S (fn [x] (electro-clap))
+                 })
+(drum-set-beat  {
+                 :B '[x - ]
+                 :H '[c o]
+                 :V3 '[:i  :o :a  :e ]
+                 ;;:V2 '[40 40]
+                 })
+(comment
+  ;;song title "o batteri" jacob named it!
+  (play-drums-metro)
+  (@*metro :bpm 250)
+
+  (inst-fx! vocali fx-echo)
+  (clear-fx vocali )
+(stop)
   )
 
 ;; some process stuff for use in the networked case
