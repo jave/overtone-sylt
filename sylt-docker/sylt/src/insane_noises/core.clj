@@ -595,6 +595,15 @@
 (def *beat (ref dummy-beat))
 (def *beat-count (ref 0))
 (defonce *metro (ref (metronome 240)))
+(def *il (ref 0));;default interleave
+
+(defn drum-set-metro [& {:keys [bpm il]
+                         :or {bpm 160
+                              il 0}}]
+  (dosync (ref-set *il il))
+
+  (@*metro :bpm (* (+ 1 il) bpm))
+  )
 
 (defn drum-set-beat [beat]
   (dosync (ref-set *beat beat)))
@@ -687,7 +696,7 @@
 
 
 (comment
-  (@*metro :bpm 400)
+  (drum-set-metro :bpm 400)
   (drum-set-drums my-drums)
   (play-drums-metro)
   (drum-set-beat amen-beat)
@@ -748,18 +757,28 @@
   (dosync (alter *beat conj [voice pattern])))
 
 (defn get-drum-fn [voice]
-  "get the drum function for VOICE, from the current drum kit in *drums"
+  "get the drum function for VOICE, from the current drum kit in *drums.
+voice is either a symbol or a map. if symbol, just look up the symbol in the drumkit.
+if map, use the :voice key to lookup the drum
+"
+       (if (map? voice)
+           (get @*drums (:voice voice)) 
+           (get @*drums voice))
+  )
+(defn get-drum-il [voice]
+  "like get-drum-fn, but get the interleave instead. 
+"
+       (if (map? voice)
+         (:il voice)
+           @*il)
+  )
+(comment
+  (apply (get-drum-fn :B )['x])
+  (apply(get-drum-fn {:voice :B})['x])
+  (get-drum-il :B )
+  (get-drum-il {:voice :B :il 1})
+  )
 
-  (let* [voice1
-         (if (map? voice)
-           (get @*drums (:alias voice)) ;; this was dumb TODO remove
-           (get @*drums voice)
-           
-           )]
-    (if (fn? voice1) ;;TODO this isnt complete yet, 
-      voice1
-      (get @*drums (:alias voice1))
-      )))
 
 (defn clear-drums []
   "clear out the drum kit"
@@ -776,7 +795,7 @@ undefined voices are dropped"
         (do
           (try
             (let [nthpattern (nth pattern  index)]
-              (if (sequential? nthpattern);; i want the arg to possible be like 110 or, [110 :symbol]
+              (if (sequential? nthpattern);; the drum arg can be a list or a single thing
                 (apply drum nthpattern)
                 (apply drum [nthpattern]))
               )
@@ -799,7 +818,7 @@ undefined voices are dropped"
    ;;play drums using a metronome strategy, which has advantages over the periodic strategy
    ;; 1st reschedule next call to the sequencer
   (apply-at (m (+ 1 beat-num))
-            play-drums-metro-old
+            play-drums-metro2
             m
             (+ 1 beat-num)
             [])
@@ -817,7 +836,7 @@ undefined voices are dropped"
   (play-drums-metro2 @*metro (@*metro)))
 
 ;;(play-drums-metro)
-;;    (@*metro :bpm 250)
+;;    (drum-set-metro :bpm 250)
 ;;(stop)
 
 (defn beat-max-len [beat]
@@ -860,7 +879,7 @@ undefined voices are dropped"
   )
 
 (comment
-    (@*metro :bpm 250)
+    (drum-set-metro :bpm 250)
     (play-drums-once {
                       ;;:V2 '[ 220 440 880]
                       :B '[x x x x x x x x]
@@ -954,7 +973,7 @@ undefined voices are dropped"
     (glasscrash)
     (drum-set-beat silent-beat)
     ;;(play-drums 100 16)
-    (@*metro :bpm 500)
+    (drum-set-metro :bpm 500)
     (drum-set-drums my-drums)
     (play-drums-metro)
 
@@ -1132,7 +1151,7 @@ undefined voices are dropped"
   (drum-set-beat wasteland-beat)
   (drum-set-drums wasteland-drums)
   ;;  (play-drums 200 32)
-  (*@metro :bpm 300)
+  (drum-set-metro :bpm 300)
   (play-drums-metro)
                                         ;(play-drums 200 33)
   ;;120 is nice, and 200 is also nice
@@ -1262,7 +1281,7 @@ undefined voices are dropped"
   (drum-set-beat dnb-beat)
   (drum-set-beat wasteland-beat)
   ;;  (play-drums 200 16)
-  (@*metro :bpm 400)
+  (drum-set-metro :bpm 400)
   (play-drums-metro)
 
   (drum-set-beat lockstep-beat)
@@ -1279,9 +1298,9 @@ undefined voices are dropped"
     :B  '[ 0 - - - - - - - - - 0 - - - - - ]
     :S  '[ - - - - 0 - - - - - - - 0 - - - ]
     :H  '[ c c c 0 c c c c c c c 0 c 0 c c ]
-    ;; {:voice :R2 :seq 2 }  '[ :c2 :d#2 :c2 :d#2 :c2   :c2 :c2 :c2 :f2 :d#2 :c2 :c2 :c2 :c2 :c2 :c2 ]
+    ;;{:voice :R2 :seq 2 }  '[ :c2 :d#2 :c2 :d#2 :c2   :c2 :c2 :c2 :f2 :d#2 :c2 :c2 :c2 :c2 :c2 :c2 ]
     :R2 '[ :c2 - - - :d#2 - - - - - :c2 - :d#2 :c2   - -   ]
-    ;;      :R3 '[ :c2 - - - :d#2 - - - - - :c2 - :d#2 :c2   - -   ]
+    ;;:R3 '[ :c2 - - - :d#2 - - - - - :c2 - :d#2 :c2   - -   ]
     }
    )
 
@@ -1294,7 +1313,7 @@ undefined voices are dropped"
 
 
 
-(def test-beat
+(drum-set-beat(def test-beat
   {
    :B  '[ 0 - - - - - - - - - 0 - - - - - ]
    :S  '[ - - - - 0 - - - - - - - 0 - - - ]
@@ -1303,7 +1322,7 @@ undefined voices are dropped"
    :R2 '[ :c2 :d#2 :c2 :d#2 :c2   :c2 :c2 :c2 :f2 :d#2 :c2 :c2 :c2 :c2 :c2 :c2 ]
    {:voice :R2} '[ :c2 - - - :d#2 - - - - - :c2 - :d#2 :c2   - -   ]
    }
-  )
+  ))
 
 
 (definst grainy5 [b 0 trate 20 dur3 1 attack 0.1 release 0.1]
@@ -1412,10 +1431,10 @@ undefined voices are dropped"
   (clear-fx psybass3 )
   
   ;; use metronome strategy
-  (@*metro :bpm 250)
-  (@*metro :bpm 300)
-  (@*metro :bpm 400)
-  (@*metro :bpm 4000)
+  (drum-set-metro :bpm 250)
+  (drum-set-metro :bpm 300)
+  (drum-set-metro :bpm 400)
+  (drum-set-metro :bpm 4000)
   ;;what does even the bpm mean?
   (play-drums-metro)
 
@@ -1632,7 +1651,7 @@ undefined voices are dropped"
 (comment
   (loop-beats (now))
   (stop)
-  (@*metro :bpm 600)
+  (drum-set-metro :bpm 600)
   (play-drums-metro)
   )
 
@@ -1738,7 +1757,7 @@ undefined voices are dropped"
                  :H '[x]
                  })
 ;; (play-drums-metro)
-;;   (@*metro :bpm 200)
+;;   (drum-set-metro :bpm 200)
 ;; chorus + echo on the vocali, sounds interesting
 
 ;;sounds pleasant with echo
@@ -1895,20 +1914,21 @@ undefined voices are dropped"
 (drum-set-beat  {
                  :V '[110 220 440 ]
                  :B '[x - ]
-                 :H '[c c r]
-                 :V2 '[110 110 110 55 -  110 55 -]
+                :H '[c c r]
+                :V2 '[110 110 110 55 -  110 55 -]
                  :S '[- - - x]
                  :m '[[a 1] [b 2] [c 3]]
                  })
 ;;some echo and chorus on tsts and your good!
 (comment
   (play-drums-metro)
-  (@*metro :bpm 500)
+  (drum-set-metro :bpm 250)
   (inst-fx! tsts fx-echo)
   (inst-fx! tsts fx-chorus)
-
+  (clear-fx tsts)
   (cs80lead :freq 220 :fatt 0.9)
   (ctl cs80lead :freq 220 )
+  (ctl cs80lead :freq 440 )  
   (ctl cs80lead :freq 110)
   (inst-fx! cs80lead fx-chorus)
   (kill cs80lead)
@@ -1942,12 +1962,51 @@ undefined voices are dropped"
 (comment
   ;;song title "o batteri" jacob named it!
   (play-drums-metro)
-  (@*metro :bpm 250)
+  (drum-set-metro :bpm 250)
 
   (inst-fx! vocali fx-echo)
   (clear-fx vocali )
 (stop)
   )
+
+;;here i want to do some drum sequencing using my new feature of sub sequences
+;;atm they wind up in unstrument :F
+(drum-set-drums {
+                 :B (fn [x] (electro-kick) (dance-kick)
+                      )
+                 :H (fn [x] (cond
+                             (= 'c x)(electro-hat)
+                             (= 'o x)(open-hat :amp 1 :t 0.1 :low 10000 :hi  2000  )
+                             :else (open-hat)))
+                 :BL (fn [x] (tsts (midi->hz(note x))))
+                 :C (fn [x] (electro-clap))
+                 :F (fn [x] (play-drums-once (choose [{:H '[c c c o]}
+                                                     {:H '[c - c -]}
+                                                     {:H '[c c c c]}
+                                                     ])))
+                 })
+
+(drum-set-beat  {
+                 :B '[x - ]
+                 :F '[x - - -]
+                 ;;:H  '[c o c o]
+                 ;:BL '[:c2 :d2 :c2 :e#2]
+                 :BL '[:g2 :g2 :d2 :g2   :a2 :g2 :d2 :b2  :a#2 :a#2 :a#2 :a#2  :a#2 :a#2 :a#2  :a#2] 
+                     ;;bbxb nbxm jjjj jjj.
+                 
+                 })
+(comment
+  (play-drums-metro)
+  (metro :bpm 200)
+  (stop)
+  (inst-fx! tsts fx-distortion2)
+  (inst-fx! tsts fx-distortion-tubescreamer)  
+  (inst-fx! tsts fx-chorus)
+  (inst-fx! tsts fx-echo)
+  
+  (clear-fx tsts)
+)
+
 
 ;; some process stuff for use in the networked case
 (sh/programs cvlc)
