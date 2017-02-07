@@ -766,10 +766,10 @@ if map, use the :voice key to lookup the drum
            (get @*drums voice))
   )
 (defn get-drum-il [voice]
-  "like get-drum-fn, but get the interleave instead. 
+  "like get-drum-fn, but get the voice interleave instead. 
 "
        (if (map? voice)
-         (:il voice)
+         (or  (:il voice) @*il)
            @*il)
   )
 (comment
@@ -777,6 +777,7 @@ if map, use the :voice key to lookup the drum
   (apply(get-drum-fn {:voice :B})['x])
   (get-drum-il :B )
   (get-drum-il {:voice :B :il 1})
+    (get-drum-il {:voice :B})
   )
 
 
@@ -784,12 +785,18 @@ if map, use the :voice key to lookup the drum
   "clear out the drum kit"
   (dosync (ref-set *beat [])))
 
+(defn il [num seq]
+    "interleave sequences with nops. for tempo experiments."
+  (mapcat (fn [x] (concat (list x) (repeat num '-) )) seq))
+
 (defn drum-fn [beat beat-count]
   "take a vertical slice out of BEAT, at BEAT-COUNT, and play this slice
 allows for voice patterns of different length
 undefined voices are dropped"
   (doseq [[voice pattern] beat] ;; map over each voice/pattern pair
-    (let* [index (mod beat-count (count pattern) ) ;; *beat-count is global counter, make index modulo pattern length
+    (let* [pattern-il (get-drum-il voice)
+           pattern (il pattern-il pattern) ;; interleave
+           index (mod beat-count (count pattern) ) ;; *beat-count is global counter, make index modulo pattern length
            drum (get-drum-fn voice)] ;;figure out the drum function for the voice
       (if (and drum (not (= '- (nth pattern index)))) ;;play the drum if there a) is a drum and b) the pattern contains something that isnt "-"
         (do
@@ -841,9 +848,13 @@ undefined voices are dropped"
 
 (defn beat-max-len [beat]
   "the bars can be different lengths in a beat, so figure out the longest one"
-  (reduce max (map #(count %) (map (fn [key] (get beat key)) (keys beat))))
+  ;;TODO oh great. this doesnt account for the interleaves.
+  ;;  (reduce max (map #(count %) (map (fn [key] (get beat key)) (keys beat))))
+  (reduce max  (map (fn [key] (* (inc(get-drum-il key))(count(get beat key)))) (keys beat)))
 
   )
+;;(get-drum-il {:voice :B :il 2}) 
+;;(beat-max-len '{:B [1 2] :C [1 2 3]})
 
 
 (defn play-drums-once2 [m beat-num beat count-cur count-end]
@@ -889,6 +900,7 @@ undefined voices are dropped"
 
 
 ;; (beat-max-len {:A '[a b] :B '[c d e] :C '[d]})
+;; (beat-max-len (mk-arpeggio-pattern :BL  '(1 - 2 2 2 1 3) (chord-degree :iii :d4 :ionian) 2 ))
 
 ;; a totaly different kind of song, Revenue Inspector!
 (comment
@@ -1339,9 +1351,6 @@ undefined voices are dropped"
      ]
     ))
 
-(defn il [num seq]
-    "interleave sequences with nops. for tempo experiments."
-  (mapcat (fn [x] (concat (list x) (repeat num '-) )) seq))
 
 ;;drum system tests
 (comment
@@ -1930,6 +1939,7 @@ undefined voices are dropped"
   (ctl cs80lead :freq 220 )
   (ctl cs80lead :freq 440 )  
   (ctl cs80lead :freq 110)
+    (ctl cs80lead :freq 55)
   (inst-fx! cs80lead fx-chorus)
   (kill cs80lead)
   (play-drums-once {
@@ -1972,13 +1982,20 @@ undefined voices are dropped"
 ;;here i want to do some drum sequencing using my new feature of sub sequences
 ;;atm they wind up in unstrument :F
 (drum-set-drums {
-                 :B (fn [x] (electro-kick) (dance-kick)
-                      )
+                   :B (fn [x]
+                        (cond
+                          (= 'c x)(electro-kick)
+                          (= 'o x) (dance-kick)
+                          :else (do (electro-kick) (dance-kick)))
+                        )
+
+                 ;; :B (fn [x] (electro-kick) (dance-kick)
+                 ;;      )
                  :H (fn [x] (cond
                              (= 'c x)(electro-hat)
                              (= 'o x)(open-hat :amp 1 :t 0.1 :low 10000 :hi  2000  )
                              :else (open-hat)))
-                 :BL (fn [x] (tsts (midi->hz(note x))))
+                 :BL (fn [x] (tsts (* 1 (midi->hz(note x))) ))
                  :C (fn [x] (electro-clap))
                  :F (fn [x] (play-drums-once (choose [{:H '[c c c o]}
                                                      {:H '[c - c -]}
@@ -1993,11 +2010,14 @@ undefined voices are dropped"
                  ;:BL '[:c2 :d2 :c2 :e#2]
                  :BL '[:g2 :g2 :d2 :g2   :a2 :g2 :d2 :b2  :a#2 :a#2 :a#2 :a#2  :a#2 :a#2 :a#2  :a#2] 
                      ;;bbxb nbxm jjjj jjj.
-                 
+                 {:voice :B  :id 3} '[o - ]
+                 {:voice :B :il 5 :id 0} '[c o ]
+                 {:voice :B :il 3 :id 1} '[c o ]
+
                  })
 (comment
   (play-drums-metro)
-  (metro :bpm 200)
+  (drum-set-metro :bpm 200)
   (stop)
   (inst-fx! tsts fx-distortion2)
   (inst-fx! tsts fx-distortion-tubescreamer)  
@@ -2006,6 +2026,186 @@ undefined voices are dropped"
   
   (clear-fx tsts)
 )
+(comment
+;;   now id like to improve the interleave function of the sequencer. the original idea was very simple,
+;;   just use the il macro to splice in the desired num nops in the sequence. then you had to multiply the metro by hand to sompensate.
+
+;;   now i want instead:
+;;   (drum-set-metro :bpm 200 il 3)
+;;   should mean real metro should be (1+3) *200=800
+;;   then each seq should have 3 nops intereleaved automatically if nothing else is said.
+;;   but a seq can use whatever interleave it wants, if said explicitly.
+
+ (drum-set-metro :bpm 200 :il 3)
+
+  (drum-set-drums {
+                   :B (fn [x]
+                        (cond
+                          (= 'c x)(electro-kick)
+                          (= 'o x) (dance-kick)
+                          :else (do (electro-kick) (dance-kick)))
+                        )
+                   :H (fn [x] (cond
+                               (= 'c x)(electro-hat)
+                               (= 'o x)(open-hat :amp 1 :t 0.1 :low 10000 :hi  2000  )
+                               :else (open-hat)))
+                   :C (fn [x] (clap))
+                   :E (fn [x] (println x) (cond (= 'e x)  (inst-fx! clap fx-echo)
+                                   (= 's x) (clear-fx clap)))
+                   })
+
+  ;;turned out nice, even though its a test track
+  (drum-set-beat  {
+                   :B '[x - ]
+                   {:voice :B  :id 3} '[o - ]                   
+                   :H  '[c o ]
+ ;                 {:voice :H :il 0 :id 0}'[c c ]
+                   ;;atm you comment out tracks to mute them
+                   ;;atm also you need :id 0, so the keys are unique
+                   {:voice :B :il 5 :id 0} '[c o ]
+                   {:voice :B :il 3 :id 1} '[c o ]
+                   :C '[- - - x]
+                   {:voice :E :il 15 } '[e - -  - - s  ]
+                   }
+                  )
+
+  ;;because doseq is used in drum-fn, this wont work. which is sad
+    (drum-set-beat  [
+                     :B '[x - ]
+                   ]
+                  )
+
+  (play-drums-metro)
+  (inst-fx! clap fx-echo)
+  (clear-fx clap)
+  (stop)
+  )
+
+(comment
+;; it is really tedious when the internal sc dies on laptop suspend/resume. does this work?
+;; i tried the below but it didnt really work
+(dosync(ref-set overtone.sc.machinery.server.connection/connection-status* :disconnected))
+(boot :internal)
+)
+
+;;now i want to play a bit with chords
+;; i have no idea what im doing at all
+
+  (definst saw-wave [freq 440 attack 0.01 sustain 0.4 release 0.1 vol 0.4] 
+  (* (env-gen (env-lin attack sustain release) 1 1 0 1 FREE)
+     ;;(sin-osc freq)
+     (sin-osc freq)
+     vol))
+  
+  (defn saw2 [music-note]
+    (saw-wave (midi->hz (note music-note))))
+  
+   (defn play-chord [a-chord]
+     (doseq [note a-chord] (saw2 note)))
+
+  (drum-set-drums {
+                   :B (fn [x]
+                        (cond
+                          (= 'c x)(electro-kick)
+                          (= 'o x) (dance-kick)
+                          (= 'd x) (dub-kick)
+                          :else (do (electro-kick) (dance-kick)))
+                        )
+                   :H (fn [x] (cond
+                               (= 'c x)(electro-hat)
+                               (= 'o x)(open-hat :amp 1 :t 0.1 :low 10000 :hi  2000  )
+                               :else (open-hat)))
+                   :C (fn [x] (clap))
+                   :E (fn [x] (println x) (cond (= 'e x)  (inst-fx! clap fx-echo)
+                                               (= 's x) (clear-fx clap)))
+                   :CH (fn [a b] (play-chord (chord-degree a b :ionian)))
+                   :BL (fn [x] (tsts (midi->hz(note x))))
+                   :R (fn [x]     (risset :freq 100 :amp 0.9)(risset :freq 101 :amp 0.9))
+                   })
+(play-chord   (chord-degree :iii :d4 :ionian))
+  ;;turned out nice, even though its a test track
+  (drum-set-beat  {
+                   :B '[x - ]
+                   {:voice :B  :id 3} '[o - ]                   
+                   {:voice :H :il 3 }  '[c o ]
+;                  {:voice :H :il 0 :id 0}'[c c ]
+                   ;;atm you comment out tracks to mute them
+                   ;;atm also you need :id 0, so the keys are unique
+                   {:voice :B :il 5 :id 0} '[c o ]
+                   {:voice :B :il 3 :id 1} '[c o ]
+;                   :C '[- - - x]
+                   {:voice :E :il 15 } '[e - -  - - s  ]
+                   :CH '[[:iii :d4] - - - [:ii :d4] - -  [:i :d4] - - - [:iv :d4] - - ]
+                   }
+                  )
+
+(comment
+
+  (drum-set-metro :bpm 200 :il 3)
+    (drum-set-metro :bpm 200 )
+  (drum-set-metro :bpm 200 :il 30)
+  (play-drums-metro)
+  (stop)
+)
+
+  (drum-set-beat  {
+                   :B '[d - ]
+                   :R '[x - - - - - - - ]
+;;                   {:voice :H :il 1} '[- c c - c c o -]
+                   }
+                  )
+(comment
+
+  (drum-set-metro :bpm 200 :il 3)
+    (drum-set-metro :bpm 200 )
+    (drum-set-metro :bpm 200 :il 30)
+    (inst-fx! open-hat fx-echo)
+    (inst-fx! open-hat fx-chorus)
+    (inst-fx! electro-hat fx-chorus)
+    (risset :freq 100 :amp 0.9)
+    (inst-fx! risset fx-echo)
+    (inst-fx! risset fx-chorus)
+    
+    (simple-flute :freq 100)
+    (inst-fx! simple-flute fx-chorus)
+    ;(inst-fx! simple-flute fx-echo)
+    (clear-fx simple-flute)
+    (kill simple-flute)
+  (play-drums-metro)
+  (stop)
+)
+
+
+;; now arpeggios, whatever they are
+;;this is an arpeggiator i think
+
+(defn mk-arpeggio-pattern [voice seq notes il]
+  ;;convert a list of notes(a chord, likely) and a seq of numbers, to a beat pattern
+  ;; ( a b c) (1 - 2 3 2 1) :B -> {:B [a - b c b a]}
+  { {:voice voice :il il}
+   (into [] (map #(if (= '- %) '- (nth notes %)) seq  ))
+   }
+  )
+;;(mk-arpeggio-pattern :B  '(1  2 2 2 1) '( a b c) 3)
+;;(mk-arpeggio-pattern :BL  '(1  2 2 2 1 3) (chord-degree :iii :d4 :ionian)  3)
+
+;; dashes should also be allowed, doesnt work atm
+;; (mk-arpeggio-pattern :BL  '(1 - 2 2 2 1 3) (chord-degree :iii :d4 :ionian) 2 )
+
+;; (play-drums-once (mk-arpeggio-pattern :BL  '(1  3 2 1 3) (chord-degree :iii :d4 :ionian) 0  ))
+
+;; TODO the interleave feature is cool, but unpredictable. i guess the base interleave should always be the same
+;; otherwise the behaviour of pattern changes when the interleave changes
+;; also play-once doesnt seem to play all notes, except if il is 0
+
+(defn play-arpeggio [voice seq notes il]
+  ;;this is much like the other drum seq routines i guess
+  (play-drums-once (mk-arpeggio-pattern voice  seq notes il ))
+
+  )
+;;(play-arpeggio :BL  '(0 1 2 3 2 1 ) (chord-degree :i :d4 :major) 1 )
+;;(play-arpeggio :BL  '(0 1 2 3 ) (chord-degree :i :d4 :minor) 1 )
+;;(play-arpeggio :BL  '(0 1 2 3 ) (chord-degree :i :d4 :diminished) 1 )
 
 
 ;; some process stuff for use in the networked case
