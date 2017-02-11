@@ -12,6 +12,7 @@
    ;;   [overtone.core]
    [overtone.inst synth piano drum]
    [overtone.examples.instruments space monotron]
+   [insane-noises.random-names]
    )
   (:require [me.raynes.conch :as sh])
   )
@@ -898,7 +899,7 @@ undefined voices are dropped"
                     } )
 )
 
-
+(declare mk-arpeggio-pattern)
 ;; (beat-max-len {:A '[a b] :B '[c d e] :C '[d]})
 ;; (beat-max-len (mk-arpeggio-pattern :BL  '(1 - 2 2 2 1 3) (chord-degree :iii :d4 :ionian) 2 ))
 
@@ -1293,7 +1294,7 @@ undefined voices are dropped"
   (drum-set-beat dnb-beat)
   (drum-set-beat wasteland-beat)
   ;;  (play-drums 200 16)
-  (drum-set-metro :bpm 400)
+  (drum-set-metro :bpm 200)
   (play-drums-metro)
 
   (drum-set-beat lockstep-beat)
@@ -1482,7 +1483,7 @@ undefined voices are dropped"
                 (= 'r ) (apply (choose [ (fn [] (closed-hat))(fn [] (open-hat)) (fn [] (hat-demo)) ]) [])
                 :else (open-hat)))
     :H2 {:alias :H}
-    :V (fn [x] (grainy5 dr1 (rand-int-range 1 10)  (rand)))
+;;    :V (fn [x] (grainy5 dr1 (rand-int-range 1 10)  (rand))) ;;some bug here
     :S (fn [x] (snare :freq 440 :decay 20 ))
     :KS (fn [x] (ks1   :note (note x) :decay 0.1 :coef 0.1))
     })
@@ -2050,7 +2051,7 @@ undefined voices are dropped"
                                (= 'o x)(open-hat :amp 1 :t 0.1 :low 10000 :hi  2000  )
                                :else (open-hat)))
                    :C (fn [x] (clap))
-                   :E (fn [x] (println x) (cond (= 'e x)  (inst-fx! clap fx-echo)
+                   :E (fn [x]  (cond (= 'e x)  (inst-fx! clap fx-echo)
                                    (= 's x) (clear-fx clap)))
                    })
 
@@ -2102,7 +2103,7 @@ undefined voices are dropped"
   
    (defn play-chord [a-chord]
      (doseq [note a-chord] (saw2 note)))
-
+(declare sf) ;; its an instrument im going to define later.
   (drum-set-drums {
                    :B (fn [x]
                         (cond
@@ -2116,11 +2117,13 @@ undefined voices are dropped"
                                (= 'o x)(open-hat :amp 1 :t 0.1 :low 10000 :hi  2000  )
                                :else (open-hat)))
                    :C (fn [x] (clap))
-                   :E (fn [x] (println x) (cond (= 'e x)  (inst-fx! clap fx-echo)
+                   :E (fn [x] (cond (= 'e x)  (inst-fx! clap fx-echo)
                                                (= 's x) (clear-fx clap)))
                    :CH (fn [a b] (play-chord (chord-degree a b :ionian)))
                    :BL (fn [x] (tsts (midi->hz(note x))))
                    :R (fn [x]     (risset :freq 100 :amp 0.9)(risset :freq 101 :amp 0.9))
+                   :F (fn [x]     (ctl sf :freq (midi->hz(note x))))
+                   :F2      (fn [x]  (play-drums-once (mk-arpeggio-pattern :F  '(0 2 1) (chord-degree x :c2 :ionian) 0  ))    )
                    })
 (play-chord   (chord-degree :iii :d4 :ionian))
   ;;turned out nice, even though its a test track
@@ -2148,28 +2151,65 @@ undefined voices are dropped"
   (stop)
 )
 
-  (drum-set-beat  {
+(definst noise-flute [freq 880
+                      amp 0.5
+                      attack 0.4
+                      decay 0.5
+                      sustain 0.8
+                      release 1
+                      gate 1
+                      out 0
+                      rq 0.1]
+  (let [env  (env-gen (adsr attack decay sustain release) gate :action FREE)
+        sig (white-noise)
+        sig (resonz sig freq rq)
+        sig  (* env sig)
+        sig2 (sin-osc freq)
+        sig (+ sig (* 0.1 sig2))
+        ]
+
+    sig))
+
+(drum-set-beat  {
                    :B '[d - ]
                    :R '[x - - - - - - - ]
-;;                   {:voice :H :il 1} '[- c c - c c o -]
+                 ;;{:voice :H :il 1} '[- c c - c c o -]
+                 ;;{:voice :H :il 1} '[ c c o c o c o - c c - - - - - - ]
+                 {:voice :F :il 1} '[ :c#4 :c#4  :c4 :c#4 :c4 :c#4 :c4 :c1 :c#4 :c#4 :c1 - - - - - ]
+                 ;;{:voice :F :il 0} '[:c2]
+                 ;;:F2 '[:i -  :ii - - :iv ]
                    }
                   )
 (comment
 
-  (drum-set-metro :bpm 200 :il 3)
+;  (drum-set-metro :bpm 200 :il 3)
     (drum-set-metro :bpm 200 )
-    (drum-set-metro :bpm 200 :il 30)
+ ;   (drum-set-metro :bpm 200 :il 3)
     (inst-fx! open-hat fx-echo)
     (inst-fx! open-hat fx-chorus)
     (inst-fx! electro-hat fx-chorus)
     (risset :freq 100 :amp 0.9)
     (inst-fx! risset fx-echo)
     (inst-fx! risset fx-chorus)
-    
-    (simple-flute :freq 100)
+    (clear-fx risset)    
+    (play-drums-once (mk-arpeggio-pattern :F  '(1  3 2 1 3) (chord-degree :iii :c3 :ionian) 0  ))    
+    (def sf (noise-flute :freq 100))
+    (def sf (simple-flute :freq 100))
+    (kill sf)
+    (kill simple-flute)
+    (def sf (noise-flute :freq 20))
+    (inst-fx! noise-flute fx-chorus)    
+    (inst-fx! noise-flute fx-echo)    
+    (ctl sf :freq 2000)
+    (ctl sf :rq 0.1)
+    (kill sf)
+    (kill noise-flute)
+
     (inst-fx! simple-flute fx-chorus)
-    ;(inst-fx! simple-flute fx-echo)
-    (clear-fx simple-flute)
+                                        ;(inst-fx! simple-flute fx-echo)
+    (inst-fx! simple-flute fx-distortion-tubescreamer)
+    (clear-fx noise-flute)
+
     (kill simple-flute)
   (play-drums-metro)
   (stop)
@@ -2192,7 +2232,7 @@ undefined voices are dropped"
 ;; dashes should also be allowed, doesnt work atm
 ;; (mk-arpeggio-pattern :BL  '(1 - 2 2 2 1 3) (chord-degree :iii :d4 :ionian) 2 )
 
-;; (play-drums-once (mk-arpeggio-pattern :BL  '(1  3 2 1 3) (chord-degree :iii :d4 :ionian) 0  ))
+;; (play-drums-once (mk-arpeggio-pattern :F  '(1  3 2 1 3) (chord-degree :iii :d4 :ionian) 0  ))
 
 ;; TODO the interleave feature is cool, but unpredictable. i guess the base interleave should always be the same
 ;; otherwise the behaviour of pattern changes when the interleave changes
