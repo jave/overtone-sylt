@@ -6,13 +6,15 @@
 ;; #+BEGIN_SRC clojure
 
 (ns insane-noises.core
-  (:require [overtone.api])
+  (:require [overtone.api]
+            [insane-noises.seq :as seq])
   (:use
    [overtone.live] ;; for the internal sc server
    ;;   [overtone.core]
    [overtone.inst synth piano drum]
    [overtone.examples.instruments space monotron]
    [insane-noises.random-names]
+
    )
   (:require [me.raynes.conch :as sh])
   )
@@ -185,6 +187,7 @@
 
 (comment
   (loop-beats (now))
+  (stop)
   )
 ;; #+END_SRC
 ;; rather than thinking in terms of milliseconds, it's useful to think
@@ -581,34 +584,6 @@
                                                                                                                                 1/2 1/4] [1 4 8])) 200 8))
   )
 ;; #+END_SRC
-;; * dnb and amen beats
-;; here i want some simple drum machine code to play with.
-
-;; you can find lots of drum patterns on wikipedia, and you can convert them rather easily to lisp constructs.
-
-;; then i combined with my other instruments to to form ... something.
-
-;; reverse a beat: (map #(list (first %) (reverse (second %)) ) amen-beat)
-;; #+BEGIN_SRC clojure
-
-;;the dummy beat thing is a workaround, because i really wanted some kind of forward declaration
-(def dummy-beat)
-(def *beat (ref dummy-beat))
-(def *beat-count (ref 0))
-(defonce *metro (ref (metronome 240)))
-(def *il (ref 0));;default interleave
-
-(defn drum-set-metro [& {:keys [bpm il]
-                         :or {bpm 160
-                              il 0}}]
-  (dosync (ref-set *il il))
-
-  (@*metro :bpm (* (+ 1 il) bpm))
-  )
-
-(defn drum-set-beat [beat]
-  (dosync (ref-set *beat beat)))
-
 
 
 
@@ -663,7 +638,7 @@
      :R  '[ - - - - 0 - - - - - - - 0 - - - ]   
      }
     )
-  (drum-set-beat psy-beat)
+  (seq/set-beat psy-beat)
   )
 
 (def my-drums
@@ -688,25 +663,18 @@
    }
   )
 
-(def *drums (ref my-drums))
-(defn drum-set-drums [drums]
-  (dosync (ref-set *drums drums)))
-
-(defn drum-reverse-beat [pattern]
-  (map #(list (first %) (reverse (second %)) ) pattern))
-
 
 (comment
-  (drum-set-metro :bpm 400)
-  (drum-set-drums my-drums)
-  (play-drums-metro)
-  (drum-set-beat amen-beat)
-  (drum-set-drums my-drums)
-  (drum-set-beat psy-beat)
-  (drum-set-beat (drum-reverse-beat psy-beat))  
-  (drum-set-beat dnb-beat)
-  (drum-set-beat (drum-reverse-beat amen-beat))
-  (drum-set-beat dnb-beat)
+  (seq/set-metro :bpm 400)
+  (seq/set-drums my-drums)
+  (seq/play-metro)
+  (seq/set-beat amen-beat)
+  (seq/set-drums my-drums)
+  (seq/set-beat psy-beat)
+  (seq/set-beat (seq/reverse-beat psy-beat))  
+  (seq/set-beat dnb-beat)
+  (seq/set-beat (seq/reverse-beat amen-beat))
+  (seq/set-beat dnb-beat)
   (inst-fx! psybass2 fx-chorus)
   (inst-fx! psybass2 fx-reverb)
   (inst-fx! psybass2 fx-echo)
@@ -745,163 +713,16 @@
   (stop)
   )
 ;; #+END_SRC
-                                        ;re-def works, but not ref-set?
-;;(sync (ref-set *beat amen-beat))
-;;(def *beat (ref amen-beat))
-;; #+BEGIN_SRC clojure
-
-(defn drum-reverse-beat [pattern]
-  "reverse PATTERN"
-  (map #(list (first %) (reverse (second %)) ) pattern))
-
-(defn drum [voice pattern]
-  (dosync (alter *beat conj [voice pattern])))
-
-(defn get-drum-fn [voice]
-  "get the drum function for VOICE, from the current drum kit in *drums.
-voice is either a symbol or a map. if symbol, just look up the symbol in the drumkit.
-if map, use the :voice key to lookup the drum
-"
-       (if (map? voice)
-           (get @*drums (:voice voice)) 
-           (get @*drums voice))
-  )
-(defn get-drum-il [voice]
-  "like get-drum-fn, but get the voice interleave instead. 
-"
-       (if (map? voice)
-         (or  (:il voice) @*il)
-           @*il)
-  )
-(comment
-  (apply (get-drum-fn :B )['x])
-  (apply(get-drum-fn {:voice :B})['x])
-  (get-drum-il :B )
-  (get-drum-il {:voice :B :il 1})
-    (get-drum-il {:voice :B})
-  )
-
-
-(defn clear-drums []
-  "clear out the drum kit"
-  (dosync (ref-set *beat [])))
-
-(defn il [num seq]
-    "interleave sequences with nops. for tempo experiments."
-  (mapcat (fn [x] (concat (list x) (repeat num '-) )) seq))
-
-(defn drum-fn [beat beat-count]
-  "take a vertical slice out of BEAT, at BEAT-COUNT, and play this slice
-allows for voice patterns of different length
-undefined voices are dropped"
-  (doseq [[voice pattern] beat] ;; map over each voice/pattern pair
-    (let* [pattern-il (get-drum-il voice)
-           pattern (il pattern-il pattern) ;; interleave
-           index (mod beat-count (count pattern) ) ;; *beat-count is global counter, make index modulo pattern length
-           drum (get-drum-fn voice)] ;;figure out the drum function for the voice
-      (if (and drum (not (= '- (nth pattern index)))) ;;play the drum if there a) is a drum and b) the pattern contains something that isnt "-"
-        (do
-          (try
-            (let [nthpattern (nth pattern  index)]
-              (if (sequential? nthpattern);; the drum arg can be a list or a single thing
-                (apply drum nthpattern)
-                (apply drum [nthpattern]))
-              )
-            ;; since its not really possible atm to guarantee that the stuff in the sequence is compatible with the drum function,
-            ;; errors are simply catched and ignored. otherwise the entire sequence stops which i dont want
-            (catch Exception e (println "uncompatible drum fn"))
-            ) 
-          
-          )
-        )
-      )))
-
-(defn drum-fn-globalbeat []
-  (drum-fn  @*beat @*beat-count)
-  
-  )
-
-(defn play-drums-metro2 [m beat-num]
-   "start playing drums, using m as metro"
-   ;;play drums using a metronome strategy, which has advantages over the periodic strategy
-   ;; 1st reschedule next call to the sequencer
-  (apply-at (m (+ 1 beat-num))
-            play-drums-metro2
-            m
-            (+ 1 beat-num)
-            [])
-  ;; 2nd schedule the drum voice
-  (at (m beat-num)(drum-fn-globalbeat))
-   ;;3d step global counters
-  (dosync (ref-set *beat-count (inc @*beat-count) ))
-  )
-;;(defonce metro  (metronome 240))
-;;(stop)
-;;(play-drums-metro-old metro (metro))
-;;(play-drums-metro-old @*metro (@*metro))
-
-(defn play-drums-metro []
-  (play-drums-metro2 @*metro (@*metro)))
-
-;;(play-drums-metro)
-;;    (drum-set-metro :bpm 250)
-;;(stop)
-
-(defn beat-max-len [beat]
-  "the bars can be different lengths in a beat, so figure out the longest one"
-  ;;TODO oh great. this doesnt account for the interleaves.
-  ;;  (reduce max (map #(count %) (map (fn [key] (get beat key)) (keys beat))))
-  (reduce max  (map (fn [key] (* (inc(get-drum-il key))(count(get beat key)))) (keys beat)))
-
-  )
-;;(get-drum-il {:voice :B :il 2}) 
-;;(beat-max-len '{:B [1 2] :C [1 2 3]})
-
-
-(defn play-drums-once2 [m beat-num beat count-cur count-end]
-  "start playing drums, using m as metro. only play them once, unlike the sister function."
-  ;;count-cur is normally 0 at the outset, and count-end the count of the longest beat bar
-  ;;initially i tried using "loop/recur", and "at" instead of temporal recursion, but that didnt work for some reason
-  ;;which i find odd.
-  (if (> count-end count-cur) ;;limit the number of calls to the sequence length
-    (do
-      (println count-cur count-end)
-      (apply-at (m (inc beat-num))
-                play-drums-once2
-                m
-                (inc beat-num)
-                beat
-                (inc count-cur)
-                count-end
-                [])
-      ;; 2nd schedule the drum voice
-      (at (m beat-num)(drum-fn beat count-cur))
-
-      )
-    )
-  
-
-  )
-
-
-
-(defn play-drums-once [beat]
-  (play-drums-once2 @*metro (@*metro) beat 0 (beat-max-len beat))
-
-  )
 
 (comment
-    (drum-set-metro :bpm 250)
-    (play-drums-once {
+    (seq/set-metro :bpm 250)
+    (seq/play-once {
                       ;;:V2 '[ 220 440 880]
                       :B '[x x x x x x x x]
                     :H '[ r]
                     } )
 )
 
-(declare mk-arpeggio-pattern)
-;; (beat-max-len {:A '[a b] :B '[c d e] :C '[d]})
-;; (beat-max-len (mk-arpeggio-pattern :BL  '(1 - 2 2 2 1 3) (chord-degree :iii :d4 :ionian) 2 ))
 
 ;; a totaly different kind of song, Revenue Inspector!
 (comment
@@ -984,11 +805,11 @@ undefined voices are dropped"
   ;;setup
   (do
     (glasscrash)
-    (drum-set-beat silent-beat)
+    (seq/set-beat silent-beat)
     ;;(play-drums 100 16)
-    (drum-set-metro :bpm 500)
-    (drum-set-drums my-drums)
-    (play-drums-metro)
+    (seq/set-metro :bpm 500)
+    (seq/set-drums my-drums)
+    (seq/play-metro)
 
     )
 
@@ -1008,7 +829,7 @@ undefined voices are dropped"
   (do
     (inst-fx! glasscrash fx-echo)
     (glasscrash)
-    (drum-set-beat dnb-beat)
+    (seq/set-beat dnb-beat)
     )
 
   ;; organy grains
@@ -1029,15 +850,15 @@ undefined voices are dropped"
   (do
     (ctl grainy3  :vol 0.25)
     (grainy4 dr1)  
-    (drum-set-beat amen-beat)
+    (seq/set-beat amen-beat)
     )
 
   
-  (drum-set-beat silent-beat)
+  (seq/set-beat silent-beat)
 
   (do
     (kill grainy4) 
-    (drum-set-beat silent-beat)
+    (seq/set-beat silent-beat)
     (inst-fx! glasscrash fx-echo)
     (inst-fx!   glasscrash fx-reverb)
     (glasscrash)
@@ -1161,11 +982,11 @@ undefined voices are dropped"
 
 
 (comment
-  (drum-set-beat wasteland-beat)
-  (drum-set-drums wasteland-drums)
+  (seq/set-beat wasteland-beat)
+  (seq/set-drums wasteland-drums)
   ;;  (play-drums 200 32)
-  (drum-set-metro :bpm 300)
-  (play-drums-metro)
+  (seq/set-metro :bpm 300)
+  (seq/play-metro)
                                         ;(play-drums 200 33)
   ;;120 is nice, and 200 is also nice
   (stop)
@@ -1291,14 +1112,14 @@ undefined voices are dropped"
 
 
 (comment
-  (drum-set-beat dnb-beat)
-  (drum-set-beat wasteland-beat)
+  (seq/set-beat dnb-beat)
+  (seq/set-beat wasteland-beat)
   ;;  (play-drums 200 16)
-  (drum-set-metro :bpm 200)
-  (play-drums-metro)
+  (seq/set-metro :bpm 200)
+  (seq/play-metro)
 
-  (drum-set-beat lockstep-beat)
-  (drum-set-drums lockstep-drums)
+  (seq/set-beat lockstep-beat)
+  (seq/set-drums lockstep-drums)
 
   (clear-fx noise-snare)
   (stop)
@@ -1306,7 +1127,7 @@ undefined voices are dropped"
 
 
   ;;another qy to play with the beat
-  (drum-set-beat
+  (seq/set-beat
    {
     :B  '[ 0 - - - - - - - - - 0 - - - - - ]
     :S  '[ - - - - 0 - - - - - - - 0 - - - ]
@@ -1317,16 +1138,16 @@ undefined voices are dropped"
     }
    )
 
-  (drum-set-drums my-drums)
-  (drum-set-drums lockstep-drums)
-  (drum-set-drums wasteland-drums)
+  (seq/set-drums my-drums)
+  (seq/set-drums lockstep-drums)
+  (seq/set-drums wasteland-drums)
   (stop)
 
   )
 
 
 
-(drum-set-beat(def test-beat
+(seq/set-beat(def test-beat
   {
    :B  '[ 0 - - - - - - - - - 0 - - - - - ]
    :S  '[ - - - - 0 - - - - - - - 0 - - - ]
@@ -1356,16 +1177,16 @@ undefined voices are dropped"
 ;;drum system tests
 (comment
   ;;all beats here
-  (drum-set-beat silent-beat)
-  (drum-set-beat psy-beat)
-  (drum-set-beat dnb-beat)
-  (drum-set-beat amen-beat)
-  (drum-set-beat wasteland-beat)
-  (drum-set-beat lockstep-beat)
-  (drum-set-beat test-beat)
+  (seq/set-beat silent-beat)
+  (seq/set-beat psy-beat)
+  (seq/set-beat dnb-beat)
+  (seq/set-beat amen-beat)
+  (seq/set-beat wasteland-beat)
+  (seq/set-beat lockstep-beat)
+  (seq/set-beat test-beat)
 
   ;; you dont need a symbol of course
-  (drum-set-beat  {
+  (seq/set-beat  {
                    :B  '[ 0 - - - - - - - - - 0 - - - - - ]
                    {:voice :H :seq 2}  '[ 0 0 0 - - - - - - - 0 0 0 - - - ]
                    :S  '[ - - - 0 - - - - - - - 0 - - - ]
@@ -1377,7 +1198,7 @@ undefined voices are dropped"
                   )
 
 
-  (drum-set-beat  [
+  (seq/set-beat  [
                    [:B  '[ 0 - - - - - - - - - 0 - - - - - ]]
                    [:B  '[ - 0 - -  - - - - - - - 0 - - - -  ]]
                    [:S  '[ - - - 0 - - - - - - - 0 - - - ]]
@@ -1387,7 +1208,7 @@ undefined voices are dropped"
                   )
 
 
-  (drum-set-beat  [
+  (seq/set-beat  [
                    [:B  '[ 0 - - - - - - - - - 0 - - - - - ]]
                    [:B  '[ - 0 - - - - - - - - - 0 - - - -  ]]
                    [:S  '[ - - - 0 - - - - - - - 0 - - - ]]
@@ -1398,13 +1219,13 @@ undefined voices are dropped"
 
 
   ;; the drums
-  (drum-set-drums my-drums)
-  (drum-set-drums lockstep-drums)
-  (drum-set-drums wasteland-drums)
+  (seq/set-drums my-drums)
+  (seq/set-drums lockstep-drums)
+  (seq/set-drums wasteland-drums)
 
 
 
-  (drum-set-beat  {
+  (seq/set-beat  {
                    :C  '[ 0 - - - - - - - - - 0 - - - - - ]
                                         ;                {:voice :H :seq 2}  '[ 0 0 0 - - - - - - - 0 0 0 - - - ]
                                         ;               :S  '[ - - - 0 - - - - - - - 0 - - - ]
@@ -1415,7 +1236,7 @@ undefined voices are dropped"
                   )
 
 
-  (drum-set-drums
+  (seq/set-drums
    {:C (fn [x] (hat-demo))
     :R2 (fn [x]
           (tb303  :note (+ 12 (note x)) :r 0.9 :wave 0 :release 0.1)
@@ -1425,7 +1246,7 @@ undefined voices are dropped"
   (inst-fx!  tb303 fx-echo)
 
   ;;flawed?
-  (drum-set-beat  {
+  (seq/set-beat  {
                    :H_ '[ c  c c O ]
                    :B  '[ 0 - - - ]
                    :R2 '[ :e4 - - - :c4  - - - :d4 :e4 - - :d4 :c4 - -  ]
@@ -1433,7 +1254,7 @@ undefined voices are dropped"
                    }
                   )
 
-  (drum-set-drums lockstep-drums)
+  (seq/set-drums lockstep-drums)
   (inst-fx!  psybass3 fx-chorus)
   (inst-fx!  psybass3 fx-freeverb)
   (inst-fx!  psybass3 fx-echo)
@@ -1441,12 +1262,12 @@ undefined voices are dropped"
   (clear-fx psybass3 )
   
   ;; use metronome strategy
-  (drum-set-metro :bpm 250)
-  (drum-set-metro :bpm 300)
-  (drum-set-metro :bpm 400)
-  (drum-set-metro :bpm 4000)
+  (seq/set-metro :bpm 250)
+  (seq/set-metro :bpm 300)
+  (seq/set-metro :bpm 400)
+  (seq/set-metro :bpm 4000)
   ;;what does even the bpm mean?
-  (play-drums-metro)
+  (seq/play-metro)
 
   (cs80lead :freq 110 :fatt 0.9)
   (ctl cs80lead :freq 220 )
@@ -1456,7 +1277,7 @@ undefined voices are dropped"
   (ctl cs80lead :fatt 0.1)
   (kill cs80lead)
 
-  (drum-set-beat  {
+  (seq/set-beat  {
                    :C  '[ 0 - - - - - - - - - 0 - - - - - ]
                                         ;                {:voice :H :seq 2}  '[ 0 0 0 - - - - - - - 0 0 0 - - - ]
                                         ;               :S  '[ - - - 0 - - - - - - - 0 - - - ]
@@ -1467,7 +1288,7 @@ undefined voices are dropped"
                    
                    }
                   )
-  (drum-set-drums
+  (seq/set-drums
    {:R2 (fn [x]
           (if (= 'x x)
             (ctl cs80lead :gate 0)
@@ -1503,7 +1324,7 @@ undefined voices are dropped"
   (grainy5 dr1 4 0.6)
   (kill grainy5)
 
-  (drum-set-beat  {
+  (seq/set-beat  {
                    :H  '[ c r - -   c - c c   - c - -  c - - -]
                                  :H2  '[ r r r - - - - - - - r r r - -  ]
                    ;;            :H2  '[ r  ]
@@ -1521,7 +1342,7 @@ undefined voices are dropped"
                   )  
 
 
-  (drum-set-beat  {
+  (seq/set-beat  {
                                         ;                :H '[c x c c]
                                         ;               :H '[c ]
                    :B '[0 - - -]
@@ -1540,7 +1361,7 @@ undefined voices are dropped"
 
   ;; experiment
   (metro :bpm 800)
-  (drum-set-beat  {
+  (seq/set-beat  {
                                         ;:H  (il 0 '[c])
                    :KS (il 1 (shift (into [] (map #(note %) '(:c3 :e3 :g3  :c3))) '[ 0 1 2 3  ] -12 ))
                                         ;                 :KS (il 0 '[:c3 :e3 :g3  :c3])                 
@@ -1645,13 +1466,13 @@ undefined voices are dropped"
   (apply-at (+ 1600 time) loop-beats (+ 1600 time) []))
 
 
-(drum-set-drums {
+(seq/set-drums {
                  :H (fn [x] (if (= 'c x)(electro-hat) (open-hat)))
                  :B (fn [x] (electro-kick))
                  :C (fn [x] (electro-clap))
                  })
 
-(drum-set-beat
+(seq/set-beat
  {
   :H '[c c c -  c - c -  c - c -  c - c -]
   :B '[c - - -  - - - -  c - - -  - - - -]
@@ -1661,8 +1482,8 @@ undefined voices are dropped"
 (comment
   (loop-beats (now))
   (stop)
-  (drum-set-metro :bpm 600)
-  (play-drums-metro)
+  (seq/set-metro :bpm 600)
+  (seq/play-metro)
   )
 
 ;;debug leaky inst
@@ -1756,18 +1577,18 @@ undefined voices are dropped"
   (at (+  1400 time) (vocali2 :a 70 0.25)(electro-hat)  )    
   (apply-at (+ 1600 time) loop-beats (+ 1600 time) []))
 
-(drum-set-drums {
+(seq/set-drums {
                  :V (fn [x] (vocali2 x 70 0.5))
                  :B (fn [x] (electro-kick))
                  :H (fn [x] (electro-hat))
                  })
-(drum-set-beat  {
+(seq/set-beat  {
                  :V '[:a :i :o :O :E :e :OE :y :u :oe ]
                  :B '[x - ]
                  :H '[x]
                  })
-;; (play-drums-metro)
-;;   (drum-set-metro :bpm 200)
+;; (seq/play-metro)
+;;   (seq/set-metro :bpm 200)
 ;; chorus + echo on the vocali, sounds interesting
 
 ;;sounds pleasant with echo
@@ -1908,7 +1729,7 @@ undefined voices are dropped"
         ]
     [src src]
     ))
-(drum-set-drums {
+(seq/set-drums {
                  :V (fn [x] (tsts (/  x 1)))
                  :B (fn [x] (electro-kick) (dance-kick))
                                         ;:H (fn [x] (electro-hat))
@@ -1921,7 +1742,7 @@ undefined voices are dropped"
                  :S (fn [x] (electro-clap))
                  :m (fn [x y] (println x y) )
                  })
-(drum-set-beat  {
+(seq/set-beat  {
                  :V '[110 220 440 ]
                  :B '[x - ]
                 :H '[c c r]
@@ -1931,8 +1752,8 @@ undefined voices are dropped"
                  })
 ;;some echo and chorus on tsts and your good!
 (comment
-  (play-drums-metro)
-  (drum-set-metro :bpm 250)
+  (seq/play-metro)
+  (seq/set-metro :bpm 250)
   (inst-fx! tsts fx-echo)
   (inst-fx! tsts fx-chorus)
   (clear-fx tsts)
@@ -1943,7 +1764,7 @@ undefined voices are dropped"
     (ctl cs80lead :freq 55)
   (inst-fx! cs80lead fx-chorus)
   (kill cs80lead)
-  (play-drums-once {
+  (seq/play-once {
                     :V2 '[ 220 440 880]
                     :H '[c c r]
                     } )
@@ -1952,7 +1773,7 @@ undefined voices are dropped"
 
 
 
-(drum-set-drums {
+(seq/set-drums {
                  :B (fn [x] (electro-kick) (dance-kick)
                       )
                  :H (fn [x] (cond
@@ -1964,7 +1785,7 @@ undefined voices are dropped"
                  :V3 (fn [x] (vocali2 x 53 2 )  (vocali2 x 55 2 ))
                  :S (fn [x] (electro-clap))
                  })
-(drum-set-beat  {
+(seq/set-beat  {
                  :B '[x - ]
                  :H '[c o]
                  :V3 '[:i  :o :a  :e ]
@@ -1972,8 +1793,8 @@ undefined voices are dropped"
                  })
 (comment
   ;;song title "o batteri" jacob named it!
-  (play-drums-metro)
-  (drum-set-metro :bpm 250)
+  (seq/play-metro)
+  (seq/set-metro :bpm 250)
 
   (inst-fx! vocali fx-echo)
   (clear-fx vocali )
@@ -1982,7 +1803,7 @@ undefined voices are dropped"
 
 ;;here i want to do some drum sequencing using my new feature of sub sequences
 ;;atm they wind up in unstrument :F
-(drum-set-drums {
+(seq/set-drums {
                    :B (fn [x]
                         (cond
                           (= 'c x)(electro-kick)
@@ -1998,13 +1819,13 @@ undefined voices are dropped"
                              :else (open-hat)))
                  :BL (fn [x] (tsts (* 1 (midi->hz(note x))) ))
                  :C (fn [x] (electro-clap))
-                 :F (fn [x] (play-drums-once (choose [{:H '[c c c o]}
+                 :F (fn [x] (seq/play-once (choose [{:H '[c c c o]}
                                                      {:H '[c - c -]}
                                                      {:H '[c c c c]}
                                                      ])))
                  })
 
-(drum-set-beat  {
+(seq/set-beat  {
                  :B '[x - ]
                  :F '[x - - -]
                  ;;:H  '[c o c o]
@@ -2017,8 +1838,8 @@ undefined voices are dropped"
 
                  })
 (comment
-  (play-drums-metro)
-  (drum-set-metro :bpm 200)
+  (seq/play-metro)
+  (seq/set-metro :bpm 200)
   (stop)
   (inst-fx! tsts fx-distortion2)
   (inst-fx! tsts fx-distortion-tubescreamer)  
@@ -2032,14 +1853,14 @@ undefined voices are dropped"
 ;;   just use the il macro to splice in the desired num nops in the sequence. then you had to multiply the metro by hand to sompensate.
 
 ;;   now i want instead:
-;;   (drum-set-metro :bpm 200 il 3)
+;;   (seq/set-metro :bpm 200 il 3)
 ;;   should mean real metro should be (1+3) *200=800
 ;;   then each seq should have 3 nops intereleaved automatically if nothing else is said.
 ;;   but a seq can use whatever interleave it wants, if said explicitly.
 
- (drum-set-metro :bpm 200 :il 3)
+ (seq/set-metro :bpm 200 :il 3)
 
-  (drum-set-drums {
+  (seq/set-drums {
                    :B (fn [x]
                         (cond
                           (= 'c x)(electro-kick)
@@ -2056,7 +1877,7 @@ undefined voices are dropped"
                    })
 
   ;;turned out nice, even though its a test track
-  (drum-set-beat  {
+  (seq/set-beat  {
                    :B '[x - ]
                    {:voice :B  :id 3} '[o - ]                   
                    :H  '[c o ]
@@ -2071,12 +1892,12 @@ undefined voices are dropped"
                   )
 
   ;;because doseq is used in drum-fn, this wont work. which is sad
-    (drum-set-beat  [
+    (seq/set-beat  [
                      :B '[x - ]
                    ]
                   )
 
-  (play-drums-metro)
+  (seq/play-metro)
   (inst-fx! clap fx-echo)
   (clear-fx clap)
   (stop)
@@ -2101,10 +1922,8 @@ undefined voices are dropped"
   (defn saw2 [music-note]
     (saw-wave (midi->hz (note music-note))))
   
-   (defn play-chord [a-chord]
-     (doseq [note a-chord] (saw2 note)))
 (declare sf) ;; its an instrument im going to define later.
-  (drum-set-drums {
+  (seq/set-drums {
                    :B (fn [x]
                         (cond
                           (= 'c x)(electro-kick)
@@ -2119,15 +1938,15 @@ undefined voices are dropped"
                    :C (fn [x] (clap))
                    :E (fn [x] (cond (= 'e x)  (inst-fx! clap fx-echo)
                                                (= 's x) (clear-fx clap)))
-                   :CH (fn [a b] (play-chord (chord-degree a b :ionian)))
+                   :CH (fn [a b] (seq/play-chord (chord-degree a b :ionian) saw2))
                    :BL (fn [x] (tsts (midi->hz(note x))))
                    :R (fn [x]     (risset :freq 100 :amp 0.9)(risset :freq 101 :amp 0.9))
                    :F (fn [x]     (ctl sf :freq (midi->hz(note x))))
-                   :F2      (fn [x]  (play-drums-once (mk-arpeggio-pattern :F  '(0 2 1) (chord-degree x :c2 :ionian) 0  ))    )
+                   :F2      (fn [x]  (seq/play-once (seq/mk-arpeggio-pattern :F  '(0 2 1) (chord-degree x :c2 :ionian) 0  ))    )
                    })
-(play-chord   (chord-degree :iii :d4 :ionian))
+(seq/play-chord   (chord-degree :iii :d4 :ionian) saw2)
   ;;turned out nice, even though its a test track
-  (drum-set-beat  {
+  (seq/set-beat  {
                    :B '[x - ]
                    {:voice :B  :id 3} '[o - ]                   
                    {:voice :H :il 3 }  '[c o ]
@@ -2144,10 +1963,10 @@ undefined voices are dropped"
 
 (comment
 
-  (drum-set-metro :bpm 200 :il 3)
-    (drum-set-metro :bpm 200 )
-  (drum-set-metro :bpm 200 :il 30)
-  (play-drums-metro)
+  (seq/set-metro :bpm 200 :il 3)
+    (seq/set-metro :bpm 200 )
+  (seq/set-metro :bpm 200 :il 30)
+  (seq/play-metro)
   (stop)
 )
 
@@ -2170,7 +1989,7 @@ undefined voices are dropped"
 
     sig))
 
-(drum-set-beat  {
+(seq/set-beat  {
                    :B '[d - ]
                    :R '[x - - - - - - - ]
                  ;;{:voice :H :il 1} '[- c c - c c o -]
@@ -2182,9 +2001,9 @@ undefined voices are dropped"
                   )
 (comment
 
-;  (drum-set-metro :bpm 200 :il 3)
-    (drum-set-metro :bpm 200 )
- ;   (drum-set-metro :bpm 200 :il 3)
+;  (seq/set-metro :bpm 200 :il 3)
+    (seq/set-metro :bpm 200 )
+ ;   (seq/set-metro :bpm 200 :il 3)
     (inst-fx! open-hat fx-echo)
     (inst-fx! open-hat fx-chorus)
     (inst-fx! electro-hat fx-chorus)
@@ -2192,7 +2011,7 @@ undefined voices are dropped"
     (inst-fx! risset fx-echo)
     (inst-fx! risset fx-chorus)
     (clear-fx risset)    
-    (play-drums-once (mk-arpeggio-pattern :F  '(1  3 2 1 3) (chord-degree :iii :c3 :ionian) 0  ))    
+    (seq/play-once (seq/mk-arpeggio-pattern :F  '(1  3 2 1 3) (chord-degree :iii :c3 :ionian) 0  ))    
     (def sf (noise-flute :freq 100))
     (def sf (simple-flute :freq 100))
     (kill sf)
@@ -2201,7 +2020,7 @@ undefined voices are dropped"
     (inst-fx! noise-flute fx-chorus)    
     (inst-fx! noise-flute fx-echo)    
     (ctl sf :freq 2000)
-    (ctl sf :rq 0.1)
+    (ctl sf :rq 0.9)
     (kill sf)
     (kill noise-flute)
 
@@ -2211,41 +2030,11 @@ undefined voices are dropped"
     (clear-fx noise-flute)
 
     (kill simple-flute)
-  (play-drums-metro)
+  (seq/play-metro)
   (stop)
 )
 
 
-;; now arpeggios, whatever they are
-;;this is an arpeggiator i think
-
-(defn mk-arpeggio-pattern [voice seq notes il]
-  ;;convert a list of notes(a chord, likely) and a seq of numbers, to a beat pattern
-  ;; ( a b c) (1 - 2 3 2 1) :B -> {:B [a - b c b a]}
-  { {:voice voice :il il}
-   (into [] (map #(if (= '- %) '- (nth notes %)) seq  ))
-   }
-  )
-;;(mk-arpeggio-pattern :B  '(1  2 2 2 1) '( a b c) 3)
-;;(mk-arpeggio-pattern :BL  '(1  2 2 2 1 3) (chord-degree :iii :d4 :ionian)  3)
-
-;; dashes should also be allowed, doesnt work atm
-;; (mk-arpeggio-pattern :BL  '(1 - 2 2 2 1 3) (chord-degree :iii :d4 :ionian) 2 )
-
-;; (play-drums-once (mk-arpeggio-pattern :F  '(1  3 2 1 3) (chord-degree :iii :d4 :ionian) 0  ))
-
-;; TODO the interleave feature is cool, but unpredictable. i guess the base interleave should always be the same
-;; otherwise the behaviour of pattern changes when the interleave changes
-;; also play-once doesnt seem to play all notes, except if il is 0
-
-(defn play-arpeggio [voice seq notes il]
-  ;;this is much like the other drum seq routines i guess
-  (play-drums-once (mk-arpeggio-pattern voice  seq notes il ))
-
-  )
-;;(play-arpeggio :BL  '(0 1 2 3 2 1 ) (chord-degree :i :d4 :major) 1 )
-;;(play-arpeggio :BL  '(0 1 2 3 ) (chord-degree :i :d4 :minor) 1 )
-;;(play-arpeggio :BL  '(0 1 2 3 ) (chord-degree :i :d4 :diminished) 1 )
 
 
 ;; some process stuff for use in the networked case
