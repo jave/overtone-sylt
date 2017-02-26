@@ -1279,12 +1279,12 @@
 
   (seq/set-beat  {
                    :C  '[ 0 - - - - - - - - - 0 - - - - - ]
-                                        ;                {:voice :H :seq 2}  '[ 0 0 0 - - - - - - - 0 0 0 - - - ]
-                                        ;               :S  '[ - - - 0 - - - - - - - 0 - - - ]
-                   :H  '[ c 0 c ]
+                  ;;{:voice :H :seq 2}  '[ 0 0 0 - - - - - - - 0 0 0 - - - ]
+                  ;;:S  '[ - - - 0 - - - - - - - 0 - - - ]
+                  :H  '[ c 0 c ]
                    :R2 '[ :c2 :d#2 :c2 :d#2 :c2   :c2 :c2 :c2 :f2 :d#2 :c2 x :c2 x :c2 x ]
                    :B  '[ 0 - - - ]
-                                        ;                :Q '[ 0 - - - - - - - -]
+                  ;;:Q '[ 0 - - - - - - - -]
                    
                    }
                   )
@@ -1363,17 +1363,17 @@
   (metro :bpm 800)
   (seq/set-beat  {
                                         ;:H  (il 0 '[c])
-                   :KS (il 1 (shift (into [] (map #(note %) '(:c3 :e3 :g3  :c3))) '[ 0 1 2 3  ] -12 ))
+                   :KS (seq/il 1 (shift (into [] (map #(note %) '(:c3 :e3 :g3  :c3))) '[ 0 1 2 3  ] -12 ))
                                         ;                 :KS (il 0 '[:c3 :e3 :g3  :c3])                 
-                   :B  (il 1 '[O - -  -] )
-                   :S  (il 1 '[0 - - - - - - -])
-                   :B2 (il 1 '[- :c2 :c2 :c2])
-                   :B3 (il 1 '[- :c3 :c3 :c3 ])
+                   :B  (seq/il 1 '[O - -  -] )
+                   :S  (seq/il 1 '[0 - - - - - - -])
+                   :B2 (seq/il 1 '[- :c2 :c2 :c2])
+                   :B3 (seq/il 1 '[- :c3 :c3 :c3 ])
                    
                    }
                   )  
 
-
+    (seq/play-metro)
   (inst-fx! grunge-bass fx-chorus)
   (inst-fx! ks1 fx-echo)
   (inst-fx! closed-hat fx-chorus)
@@ -1452,20 +1452,7 @@
        ]
     (softclip (* 2 (+ noise1 noise2)))
     ))
-
-(defn loop-beats [time]
-  (at (+    0 time)  (electro-hat)(electro-kick) )
-  (at (+  100 time) (electro-hat)  )  
-  (at (+  200 time) (electro-hat)  )
-  (at (+  400 time) (electro-hat)  )
-  (at (+  600 time) (electro-hat)  )
-  (at (+  800 time)   (electro-hat)(electro-kick) )
-  (at (+  1000 time) (electro-hat)  )  
-  (at (+ 1200 time)(electro-clap) (electro-hat)  )
-  (at (+  1400 time) (electro-hat)  )    
-  (apply-at (+ 1600 time) loop-beats (+ 1600 time) []))
-
-
+ 
 (seq/set-drums {
                  :H (fn [x] (if (= 'c x)(electro-hat) (open-hat)))
                  :B (fn [x] (electro-kick))
@@ -1586,11 +1573,16 @@
                  :V '[:a :i :o :O :E :e :OE :y :u :oe ]
                  :B '[x - ]
                  :H '[x]
-                 })
-;; (seq/play-metro)
-;;   (seq/set-metro :bpm 200)
-;; chorus + echo on the vocali, sounds interesting
 
+                })
+(comment
+ (seq/play-metro)
+ (seq/set-metro :bpm 200)
+ (inst-fx! vocali fx-echo )
+ (inst-fx! vocali fx-chorus )
+ (stop)
+;; chorus + echo on the vocali, sounds interesting
+)
 ;;sounds pleasant with echo
 (definst my-formant [fund 100]
   (let
@@ -1788,14 +1780,14 @@
 (seq/set-beat  {
                  :B '[x - ]
                  :H '[c o]
-                 :V3 '[:i  :o :a  :e ]
-                 ;;:V2 '[40 40]
+;                 :V3 '[:i  :o :a  :e ]
+                 :V2 '[40 40]
                  })
 (comment
   ;;song title "o batteri" jacob named it!
   (seq/play-metro)
   (seq/set-metro :bpm 250)
-
+  (kill buzz)
   (inst-fx! vocali fx-echo)
   (clear-fx vocali )
 (stop)
@@ -1881,7 +1873,7 @@
                    :B '[x - ]
                    {:voice :B  :id 3} '[o - ]                   
                    :H  '[c o ]
- ;                 {:voice :H :il 0 :id 0}'[c c ]
+;                 {:voice :H :il 0 :id 0}'[c c ]
                    ;;atm you comment out tracks to mute them
                    ;;atm also you need :id 0, so the keys are unique
                    {:voice :B :il 5 :id 0} '[c o ]
@@ -1896,7 +1888,7 @@
                      :B '[x - ]
                    ]
                   )
-
+    (seq/set-metro :bpm 200 :il 3)
   (seq/play-metro)
   (inst-fx! clap fx-echo)
   (clear-fx clap)
@@ -1940,7 +1932,8 @@
                                                (= 's x) (clear-fx clap)))
                    :CH (fn [a b] (seq/play-chord (chord-degree a b :ionian) saw2))
                    :BL (fn [x] (tsts (midi->hz(note x))))
-                   :R (fn [x]     (risset :freq 100 :amp 0.9)(risset :freq 101 :amp 0.9))
+                  :R (fn [x]     (risset :freq 100 :amp 0.9) (risset :freq 101 :amp 0.9))
+                  :RO (fn [f a]     (risset :freq f :amp a) (risset :freq (+ f 1) :amp a))
                    :F (fn [x]     (ctl sf :freq (midi->hz(note x))))
                    :F2      (fn [x]  (seq/play-once (seq/mk-arpeggio-pattern :F  '(0 2 1) (chord-degree x :c2 :ionian) 0  ))    )
                    })
@@ -1991,17 +1984,25 @@
 
 (seq/set-beat  {
                    :B '[d - ]
-                   :R '[x - - - - - - - ]
+                :R  '[x - - - - - - - ]
+;;                :C  '[x - - - - - - - ]
+                ;;here i intended a simulated echo, but it is hard getting the same timing as the fx-echo
+                ;;fx-echo manages 6 rissets in the same time as 4 bdrums
+                ;{:voice :RO :il 5} '[[100 1] [100 0.8]  [100 0.4] [100 0.3] [100 0.2] [100 0.1] - - ]
+
+                ;; a pseudo echo attempt
+                ;;{:voice :RO :il 10}  (into (loop [x 7 a 1 r []] (if (<  x 1 ) r (recur (- x 1) (* a 0.8) (conj r [100  a] ))  )  ) [ '-])
+                
                  ;;{:voice :H :il 1} '[- c c - c c o -]
                  ;;{:voice :H :il 1} '[ c c o c o c o - c c - - - - - - ]
-                 {:voice :F :il 1} '[ :c#4 :c#4  :c4 :c#4 :c4 :c#4 :c4 :c1 :c#4 :c#4 :c1 - - - - - ]
+                 {:voice :F :il 1} '[ :c#4 :c#4  :c4 :c#4 :c4 :c#4 :c4 :c1 :c#4 :c#4 :c1 - - - - - ];;TODO c1 should be a stopnote, x maybe?
                  ;;{:voice :F :il 0} '[:c2]
                  ;;:F2 '[:i -  :ii - - :iv ]
                    }
                   )
 (comment
 
-;  (seq/set-metro :bpm 200 :il 3)
+;  (seq/set-metro :bpm 200 :il 6)
     (seq/set-metro :bpm 200 )
  ;   (seq/set-metro :bpm 200 :il 3)
     (inst-fx! open-hat fx-echo)
@@ -2010,8 +2011,11 @@
     (risset :freq 100 :amp 0.9)
     (inst-fx! risset fx-echo)
     (inst-fx! risset fx-chorus)
-    (clear-fx risset)    
-    (seq/play-once (seq/mk-arpeggio-pattern :F  '(1  3 2 1 3) (chord-degree :iii :c3 :ionian) 0  ))    
+    (clear-fx risset)
+    (seq/play-once {{:voice :RO :il 5}  (into (loop [x 6 a 1 r []] (if (<  x 1 ) r (recur (- x 1) (* a 0.6) (conj r [100  a] ))  )  ) [ '-])
+                    })
+    (seq/play-once (seq/mk-arpeggio-pattern :F  '(1  3 2 1 3) (chord-degree :iii :c#3 :ionian) 0  ))
+        (seq/play-once (seq/mk-arpeggio-pattern :F  '(1  3 2 1 3) [:c#4 :c4 :c1 :c#4] 0  ))    
     (def sf (noise-flute :freq 100))
     (def sf (simple-flute :freq 100))
     (kill sf)
@@ -2030,8 +2034,8 @@
     (clear-fx noise-flute)
 
     (kill simple-flute)
-  (seq/play-metro)
-  (stop)
+    (seq/play-metro)
+    (stop)
 )
 
 
