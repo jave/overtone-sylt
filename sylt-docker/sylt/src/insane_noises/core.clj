@@ -14,7 +14,7 @@
    [overtone.inst synth piano drum]
    [overtone.examples.instruments space monotron]
    [insane-noises.random-names]
-
+   [insane-noises.inst]
    )
   (:require [me.raynes.conch :as sh])
   )
@@ -113,33 +113,9 @@
   )
 ;; #+END_SRC
 
-;; * First, we'll define some percussive instruments
-
-;; this high hat instrument takes a white noise generator and shapes
-;; it with a percussive envelope
-
-;; #+BEGIN_SRC clojure
-(definst hat [volume 1.0]
-  (let [src (white-noise)
-        env (env-gen (perc 0.001 0.3) :action FREE)]
-    (* volume 1 src env)))
-
-(comment
-  (hat)
-  )
-;; #+END_SRC
 
 ;; * some basic tutorial code
 
-;;just a workaround because i didnt have stuff cached
-
-;; #+BEGIN_SRC clojure
-(defn frp [x]
-
-                                        ;  "/home/joakim/.config/google-chrome-unstable/Default/Extensions/bepbmhgboaologfdajaanbcjmnhjmhfn/0.1.1.5023_0/audio/1_short_Open_16_16.wav"
-  (freesound-path x)
-  )
-;; #+END_SRC
 
 ;; sampled kick drum
 ;; from http://www.freesound.org/people/opm/sounds/2086/
@@ -269,20 +245,9 @@
   (closed-hat :low 1000 :hi 2000)
   )
 
-                                        ;(definst myblip []  (g-verb(blip 100 200)))
 
-(definst myblip
-  [note 60 amp 0.7 attack 0.001 release 2]
-  (let [freq  (midicps note)
-        env   (env-gen (perc attack release) :action FREE)
-        f-env (+ freq (* 3 freq (env-gen (perc 0.012 (- release 0.1)))))
-        bfreq (/ freq 2)
-        sig   (apply +
-                     (concat 
-                      (g-verb
-                       (blip [freq note]))))
-        audio (* amp env sig)]
-    audio))
+
+
 
 (defn myseq [note]
   ;;2 overpad for xtra phat(with echo and chorus)
@@ -338,48 +303,7 @@
   (noise-snare :decay 0.7 )
   )
 
-(definst psybass
-  [note 60 amp 0.7 attack 0.001 release 0.2 numharm 200]
-  (let [freq  (midicps note)
-        env   (env-gen (perc attack release) :action FREE)
-        f-env (+ freq (* 3 freq (env-gen (perc 0.012 (- release 0.1)))))
-        bfreq (/ freq 2)
-        sig   (apply +
-                     (concat 
-                      (g-verb
-                       (blip [freq note ] :numharm numharm))))
-        audio (* amp env sig)]
-    audio))
 
-(definst psybass2
-  [note 60 amp 0.7 attack 0.001 release 0.2 numharm 200]
-  (let [freq  (midicps note)
-        env   (env-gen (perc attack release) :action FREE)
-        f-env (+ freq (* 3 freq (env-gen (perc 0.012 (- release 0.1)))))
-        bfreq (/ freq 2)
-        sig   (apply +
-                     (concat 
-                      (g-verb
-                       (blip [freq note ] :numharm numharm))))
-        audio (* amp env sig)]
-    audio))
-
-(definst psybass3
-  [note 60 amp 0.7 attack 0.001 release 0.2 numharm 200]
-  (let [freq  (midicps note)
-        env   (env-gen (perc attack release) :action FREE)
-        sig   (apply +
-                     (concat 
-                      
-                      (bpf (saw [freq note ]) numharm )))
-        sig2   (apply +
-                      (concat 
-                       
-                       (bpf (saw [freq note ])  numharm )))
-
-        audio (* amp env sig)
-        audio2 (* amp env sig2)]
-    [audio audio2]))
 
 
 (defn psyh1 []
@@ -456,22 +380,8 @@
 (def dreamidx (agent 0))
 
 
-(definst dream [bufnum 0]
-  (play-buf :num-channels 1 :bufnum bufnum :rate 0.8)
-  ;;(send dreamidx inc )
-  ;;(if (< 10 @dreamidx) (send dreamidx inc ) (  ))
 
-  )
 (defn dream-inc [] (send dreamidx inc )(dream @dreamidx))
-(def choir (sample (frp 46712)))
-(def choir2 (sample (frp 65801)))
-(def choir3 (load-sample (frp 65801)))
-(def choir4 (load-sample (frp 46712)))
-(definst choir2s []
-  (* 64 (play-buf :num-channels 1 :bufnum choir3 :rate 1)))
-
-(definst choir4s []
-  (* 64 (play-buf :num-channels 2 :bufnum choir4 :rate 1)))
 
 (comment
   (simple-beats metro (metro))
@@ -526,18 +436,6 @@
   )
 ;; #+END_SRC
 
-;; * some dubstep varation
-;; mostly copied
-
-;; and combining ideas from sounds.clj with the rhythm ideas here:
-
-;; first we bring back the dubstep inst
-;; #+BEGIN_SRC clojure
-(definst dubstep [freq 100 wobble-freq 5]
-  (let [sweep (lin-exp (lf-saw wobble-freq) -1 1 40 5000)
-        son   (mix (saw (* freq [0.99 1 1.01])))]
-    (lpf son sweep)))
-;; #+END_SRC
 ;; define a vector of frequencies from a tune
 ;; later, we use (cycle notes) to repeat the tune indefinitely
 ;; #+BEGIN_SRC clojure
@@ -632,8 +530,8 @@
      :B2 '[ 0 - - - 0 - - - 0 - - - 0 - - - ]
      :S  '[ - - - - 0 - - - - - - - 0 - - - ]
      :H  '[ c c o - c c o - c c o - c c o - ]
-                                        ;:R2 '[ - :c4  :c4 - :c4 :c4 :c4 - :c4 :c4 :c4 - :c4 :c4 :c4 ]
-                                        ;   :R2 '[ - :c2  :c2 :a2 - :c2 :c2 :a2 - :c2 :c2 :a2 - :c2 :c2 :b2 ]
+     ;;  :R2 '[ - :c4  :c4 - :c4 :c4 :c4 - :c4 :c4 :c4 - :c4 :c4 :c4 ]
+     ;;  :R2 '[ - :c2  :c2 :a2 - :c2 :c2 :a2 - :c2 :c2 :a2 - :c2 :c2 :b2 ]
      :R2 '[ - :c2  :c2 :c2 - :c2 :c2 :c2 - :c2 :c2 :c2 - :c2 :c2 :c2 ]
      :R  '[ - - - - 0 - - - - - - - 0 - - - ]   
      }
@@ -744,39 +642,7 @@
 
 
 
-(definst grainy2 [b 0]
-  (let [
-        trate (mouse-y:kr 1 30)
-        dur (/ 2 trate)]
-    ;;i do this to get stereo compatibility ith the fx
-    [
-     (t-grains 2 (impulse:ar trate) b 1 (mouse-x:kr 0 (buf-dur:kr b)) dur 0 0.8 2)
-     (t-grains 2 (impulse:ar trate) b 1 (mouse-x:kr 0 (buf-dur:kr b)) dur 0 0.8 2)
-     ]
-    ))
 
-(definst grainy3 [b 0 vol 1]
-  (let [
-        trate (mouse-y:kr 1 30)
-        dur (/ 2 trate)]
-    ;;i do this to get stereo compatibility ith the fx
-    [
-     (* vol (t-grains 2 (impulse:ar trate) b 0.5 (mouse-x:kr 0 (buf-dur:kr b)) dur 0 0.8 2))
-     (* vol (t-grains 2 (impulse:ar trate) b 0.5 (mouse-x:kr 0 (buf-dur:kr b)) dur 0 0.8 2))
-     ]
-    ))
-
-
-(definst grainy4 [b 0]
-  (let [
-        trate (mouse-y:kr 1 30)
-        dur (/ 2 trate)]
-    ;;i do this to get stereo compatibility ith the fx
-    [
-     (t-grains 2 (impulse:ar trate) b 1 (mouse-x:kr 0 (buf-dur:kr b)) dur 0 0.8 2)
-     (t-grains 2 (impulse:ar trate) b 1 (mouse-x:kr 0 (buf-dur:kr b)) dur 0 0.8 2)
-     ]
-    ))
 
 
 ;;(def organ-sample (load-sample "~/samples/organ.wav"))
@@ -787,9 +653,7 @@
 ;; (def dr1 (load-sample   "/home/joakim/am_i_alive_all/am_i_alive/01.wav"))
                                         ;(def glasscrash (sample (frp 221528)))
                                         ;(play-buf 1 organ-sample)
-(def glasscrashsample (load-sample (frp 221528)))
-(definst glasscrash [vol 1]
-  (* vol (play-buf :num-channels 2 :bufnum glasscrashsample :rate 2)))
+
 
 
                                         ;(glasscrashinst)
@@ -950,33 +814,7 @@
    }
   )
 
-;;my monotron is the same as the example monotron except you can apply effects to it
-(definst jvmonotron
-  "Korg Monotron from website diagram:
-   http://korg.com/services/products/monotron/monotron_Block_diagram.jpg."
-  [note     60            ; midi note value
-   volume   0.7           ; gain of the output
-   attack 0.001 release 0.2 
-   mod_pitch_not_cutoff 1 ; use 0 or 1 only to select LFO pitch or cutoff modification
-   pitch    0.0           ; frequency of the VCO
-   rate     4.0           ; frequency of the LFO
-   int      1.0           ; intensity of the LFO
-   cutoff   1000.0        ; cutoff frequency of the VCF
-   peak     0.5           ; VCF peak control (resonance)
-   pan      0             ; stereo panning
-   ]
-  (let [note_freq       (midicps note)
-        env   (env-gen (perc attack release) :action FREE)
-        pitch_mod_coef  mod_pitch_not_cutoff
-        cutoff_mod_coef (- 1 mod_pitch_not_cutoff)
-        LFO             (* int (saw rate))
-        VCO             (saw (+ note_freq pitch (* pitch_mod_coef LFO)))
-        vcf_freq        (+ cutoff (* cutoff_mod_coef LFO) note_freq)
-        VCF             (moog-ff VCO vcf_freq peak)
-        ]
-                                        ;(out 0 (pan2 (* volume env VCF) pan))
-    [(* volume env VCF)  (* volume env VCF) ]
-    ))
+
 
 
 
@@ -1094,7 +932,7 @@
    }
   )
 
-(def lockstep-beat
+(seq/set-beat 'lockstep-beat
   {
    :B  '[ 0 - - - - - - - - - 0 - - - - - ]
    :S  '[ - - - - 0 - - - - - - - 0 - - - ]
@@ -1114,7 +952,7 @@
 (comment
   (seq/set-beat dnb-beat)
   (seq/set-beat wasteland-beat)
-  ;;  (play-drums 200 16)
+  ;;  (seq/play 200 16)
   (seq/set-metro :bpm 200)
   (seq/play-metro)
 
@@ -1132,9 +970,9 @@
     :B  '[ 0 - - - - - - - - - 0 - - - - - ]
     :S  '[ - - - - 0 - - - - - - - 0 - - - ]
     :H  '[ c c c 0 c c c c c c c 0 c 0 c c ]
-    ;;{:voice :R2 :seq 2 }  '[ :c2 :d#2 :c2 :d#2 :c2   :c2 :c2 :c2 :f2 :d#2 :c2 :c2 :c2 :c2 :c2 :c2 ]
+;;    {:voice :R2 :seq 2 }  '[ :c2 :d#2 :c2 :d#2 :c2   :c2 :c2 :c2 :f2 :d#2 :c2 :c2 :c2 :c2 :c2 :c2 ]
     :R2 '[ :c2 - - - :d#2 - - - - - :c2 - :d#2 :c2   - -   ]
-    ;;:R3 '[ :c2 - - - :d#2 - - - - - :c2 - :d#2 :c2   - -   ]
+;;    :R3 '[ :c2 - - - :d#2 - - - - - :c2 - :d#2 :c2   - -   ]
     }
    )
 
@@ -1159,19 +997,7 @@
   ))
 
 
-(definst grainy5 [b 0 trate 20 dur3 1 attack 0.1 release 0.1]
-  (let [
-        ;;        trate (mouse-y:kr 1 30)
-        dur (/ 2 trate)
-        dur2  (* dur3 (buf-dur:kr b))
-        env   (env-gen (perc attack release) :action FREE)
-        ]
-    ;;i do this to get stereo compatibility ith the fx
-    [
-     (* env (t-grains 2 (impulse:ar trate) b 1 dur2 dur 0 0.8 2))
-     (* env (t-grains 2 (impulse:ar trate) b 1 dur2 dur 0 0.8 2))
-     ]
-    ))
+
 
 
 ;;drum system tests
@@ -1226,14 +1052,15 @@
 
 
   (seq/set-beat  {
-                   :C  '[ 0 - - - - - - - - - 0 - - - - - ]
+                                     :C  '[ 0 - - - - - - - - - 0 - - - - - ]
+                 ;;                    :C  '[ 0  ]
                                         ;                {:voice :H :seq 2}  '[ 0 0 0 - - - - - - - 0 0 0 - - - ]
                                         ;               :S  '[ - - - 0 - - - - - - - 0 - - - ]
                                         ;              :H  '[ c 0 c ]
                    :R2 '[ :c2 :d#2 :c2 :d#2 :c2   :c2 :c2 :c2 :f2 :d#2 :c2 :c2 :c2 :c2 :c2 :c2 ]
-                   :R3 '[ :c3 :d#3 :c3 :d#3 :c3   :c3 :c3 :c3 :f3 :d#3 :c3 :c3 :c3   ]
-                   }
-                  )
+                  { :voice :R2 :seq 2} '[ :c3 :d#3 :c3 :d#3 :c3   :c3 :c3 :c3 :f3 :d#3 :c3 :c3 :c3   ]}
+
+                 )
 
 
   (seq/set-drums
@@ -1241,7 +1068,7 @@
     :R2 (fn [x]
           (tb303  :note (+ 12 (note x)) :r 0.9 :wave 0 :release 0.1)
           )
-    :R3 {:alias :R2}
+
     })
   (inst-fx!  tb303 fx-echo)
 
@@ -1279,7 +1106,7 @@
 
   (seq/set-beat  {
                    :C  '[ 0 - - - - - - - - - 0 - - - - - ]
-                  ;;{:voice :H :seq 2}  '[ 0 0 0 - - - - - - - 0 0 0 - - - ]
+                  ;;                  {:voice :H :seq 2}  '[ 0 0 0 - - - - - - - 0 0 0 - - - ]
                   ;;:S  '[ - - - 0 - - - - - - - 0 - - - ]
                   :H  '[ c 0 c ]
                    :R2 '[ :c2 :d#2 :c2 :d#2 :c2   :c2 :c2 :c2 :f2 :d#2 :c2 x :c2 x :c2 x ]
@@ -1343,14 +1170,14 @@
 
 
   (seq/set-beat  {
-                                        ;                :H '[c x c c]
+                  ;;:H '[c x c c]
                                         ;               :H '[c ]
                    :B '[0 - - -]
                    :S '[0 - - - - - - -]                 
                    :B2 '[- :c2 :c2 :c2]
                    :B3 '[- :c3 :c3 :c3 ]
-                                        ;                 :V '[- :c3 :c3 :c3 ]
-                   
+                  ;;:V '[- :c3 :c3 :c3 ]
+                  
                                         ;              :V '[ - 0 0 0 ]                 
                    
                    }
@@ -1392,78 +1219,20 @@
   )
 
 
-;;;; new insts 20170112
-(definst radio [ freq  440 amp  0.5 gate  1]
-  (let 
-      [oscfreq  (repeat 3 (* freq (lin-lin (lf-noise2:kr 0.5) 0.98 1.02))) ; !3, seems to mean repeat 3 times? weird
-       snd      (splay (* (lf-saw oscfreq ) amp))
-       env      (env-gen (adsr 0.7 4 0 0.1) :action FREE)
-       output   (lpf snd (+ (* env freq) (* 2 freq)))
-       ] [output output]))
-
-
-
-;;http://sccode.org/1-523
-(definst electro-kick [out  0 pan  0 amp  0.3]
-  (let
-      [bodyFreq (env-gen (envelope [261 120 51] [0.035 0.08] :exp))
-       bodyAmp (env-gen (lin 0.005 0.1 0.3 ):action FREE)
-       body (* (sin-osc bodyFreq)  bodyAmp)
-
-       popFreq (x-line:kr 750, 261, 0.02)
-       popAmp (* (env-gen (lin 0.001 0.02 0.001))  0.15 )
-       pop  (* (sin-osc popFreq) popAmp)
-
-       clickAmp (* ( env-gen (perc 0.001 0.01)) 0.15)
-       click    (* (lpf (formant 910 4760 2110) 3140)  clickAmp)
-
-       snd (tanh (+  body pop click))
-       ]
-    [snd snd]))
-
-
-(definst electro-hat
-  [out  0, pan 0, amp  0.3]
-
-  ;;// noise -> resonance -> expodec envelope
-  (let
-      [noiseAmp  (env-gen (perc 0.001, 0.3, :curve -8) :action FREE)
-       noise (* (mix (bpf  (clip-noise)   [4010, 4151]
-                           [0.15, 0.56]
-                           ;;[1.0, 0.6] ;;why doeesnt this work?
-                           ))
-                0.7  noiseAmp)
-
-       snd  noise]
-    [snd snd]))
-
-
-(definst electro-clap [out  0 amp  0.5 pan  0 dur  1]
-  (let
-      [env1   (env-gen   (envelope
-                          [0, 1, 0, 0.9, 0, 0.7, 0, 0.5, 0],
-                          [0.001, 0.009, 0, 0.008, 0, 0.01, 0, 0.03],
-                          [0, -3, 0, -3, 0, -3, 0, -4]) :action FREE)
-       noise1 (bpf (lpf (hpf (*  env1 (white-noise)) 600) (x-line 7200, 4000, 0.03)) 1620 3)
-
-       env2 ( env-gen (envelope [0, 1, 0], [0.02, 0.18], [0, -4]))
-       noise2  (bpf (lpf (hpf (*  env2 (white-noise)) 1000) 7600) 1230 0.7 ;0.7
-                    )
-       ]
-    (softclip (* 2 (+ noise1 noise2)))
-    ))
  
 (seq/set-drums {
                  :H (fn [x] (if (= 'c x)(electro-hat) (open-hat)))
                  :B (fn [x] (electro-kick))
-                 :C (fn [x] (electro-clap))
+                :C (fn [x] (electro-clap))
+                :V (fn [x] (vocali2 x 70 0.5))
                  })
 
-(seq/set-beat
+(seq/set-beat 'vocali-beat
  {
   :H '[c c c -  c - c -  c - c -  c - c -]
   :B '[c - - -  - - - -  c - - -  - - - -]
   :C '[- - - -  - - - -  - - - -  c - - -]
+  :V '[:a :i :e - :E - :OE - :y -  :u - :o - :a -]
   })
 
 (comment
@@ -1479,90 +1248,6 @@
 ;; (defn loop-beats [time]
 ;;   (at (+    0 time)  (tstbass) )
 ;;   (apply-at (+ 50 time) loop-beats (+ 50 time) []))
-
-
-;;questions:
-;; - bpf last arg
-;; - get after a while: FAILURE /s_new too many nodes, so im missing some reclamation
-
-;; some other basses
-
-(definst tstbass [atk 0.01, dur 0.15, freq 50, amp 0.8]
-
-  (* (bpf (lf-saw freq), freq, 2)  (env-gen(perc atk, dur, amp, 6 )))
-  )
-
-
-
-(definst bazz[ dur 0.15, freq 50, amp 0.8, index 10 ]
-  (* (pm-osc freq, (+ freq  5), index) (env-gen(triangle dur ))))
-
-
-(definst basicfm [out  0, gate  1, amp  1, carFreq  1000, modFreq  100, modAmount  2000, clipAmount  0.1]
-  (let [modEnv (env-gen (adsr 0.5 0.5 0.7 0.1 :peak-level modAmount) gate)
-        mod (* (sin-osc modFreq) modEnv)
-        car (+ mod (sin-osc carFreq))
-        ampEnv (env-gen (adsr 0.1, 0.3, 0.7, 0.2, :peak-level amp) gate )
-        clipv (* clipAmount 500)
-                                        ;snd (clip (* car ampEnv clipv) -0.7 0.7)
-        snd (* 0.1 (clip:ar (* car ampEnv clipv) -0.7 0.7))
-        ]
-    [snd snd]
-    ))
-
-;; SynthDef(\vocali, { arg f1, f2, fund = 70, amp = 0.25 ;
-;; 		var source = Saw.ar(fund);
-;; 		var vowel = Normalizer.ar(BPF.ar(source, f1, 0.1))
-;; 		+
-;; 		Normalizer.ar(BPF.ar(source, f2, 0.1))
-;; 		* amp ;
-;; 		Out.ar(0, vowel.dup)
-;; 	}).add ;
-;; \i:[2300, 300], \e: [2150, 440], \E: [1830, 580],
-;; 		\a: [1620, 780], \O: [900, 580], \o: [730, 440],
-;; 		\u: [780, 290],\y: [1750, 300],\oe: [1600, 440],
-;; 		\OE: [1400, 580]
-
-
-
-(def vocali-x {:i [2300, 300], :e [2150, 440], :E [1830, 580],
-               :a [1620, 780], :O [900, 580], :o [730, 440],
-               :u [780, 290], :y [1750, 300],:oe [1600, 440],
-               :OE [1400, 580]})
-
-
-
-
-
-(definst vocali [f1 2300 f2 300   fund 70 amp 0.25]
-  (let [
-        src (saw fund)
-        env (env-gen (perc 0.01 0.5) :action FREE)
-        vowel (* env amp (+ (normalizer (bpf src f1 0.09))
-                            (normalizer (bpf src f2 0.09))))
-        ]
-    [vowel vowel])
-  
-  )
-
-(defn vocali2 [x fund amp]
-  (let [[f1 f2] (get  vocali-x x)
-        ]
-    (vocali f1 f2 fund amp)
-    )
-  )
-;;(vocali2 :i 70 0.25)  
-(defn loop-beats [time]
-  (at (+    0 time)  (vocali2 :a 70 0.25)(electro-hat)(electro-kick) )
-  (at (+  200 time) (vocali2 :e 70 0.25)(electro-hat)  )
-  (at (+  100 time) (vocali2 :i 70 0.25)(electro-hat)  )  
-  (at (+  400 time) (vocali2 :E 70 0.25)(electro-hat)  )
-  (at (+  600 time) (vocali2 :OE 70 0.25)(electro-hat)  )
-  (at (+  800 time)   (vocali2 :y 70 0.25)(electro-hat)(electro-kick) )
-  (at (+  1000 time) (vocali2 :u 70 0.25)(electro-hat)  )  
-  (at (+ 1200 time) (vocali2 :o 70 0.25)( electro-clap) (electro-hat)  )
-  (at (+  1400 time) (vocali2 :a 70 0.25)(electro-hat)  )    
-  (apply-at (+ 1600 time) loop-beats (+ 1600 time) []))
 
 (seq/set-drums {
                  :V (fn [x] (vocali2 x 70 0.5))
@@ -1582,16 +1267,7 @@
  (inst-fx! vocali fx-chorus )
  (stop)
 ;; chorus + echo on the vocali, sounds interesting
-)
-;;sounds pleasant with echo
-(definst my-formant [fund 100]
-  (let
-      [
-       src1 (formant fund (x-line 2000 400 ) 200)
-       src2 (formant fund (x-line 2000 400 ) 400)
-       env (env-gen (perc 0.01 0.8) :action FREE)
-       ]
-    [ (* env src1) (* env src2) ]))
+ )
 
 (comment
   (loop-beats (now))
@@ -1599,77 +1275,8 @@
   (stop)
   )
 
-(definst myformlet [freq 50 phase 0.5]
-  (let
-      [        env (env-gen (perc 0.01 0.5) :action FREE)
-       src (impulse:ar freq, phase ) 
-       src (formlet  src 300 0.01 0.1)
-       src (* env src)
-       ]
-    [src src]
-    ))
 
 
-;; SynthDef(\risset, {|out = 0, pan = 0, freq = 400, amp = 0.1, dur = 2, gate = 1|
-;; 		var amps = #[1, 0.67, 1, 1.8, 2.67, 1.67, 1.46, 1.33, 1.33, 1, 1.33];
-;; 		var durs = #[1, 0.9, 0.65, 0.55, 0.325, 0.35, 0.25, 0.2, 0.15, 0.1, 0.075];
-;; 		var frqs = #[0.56, 0.56, 0.92, 0.92, 1.19, 1.7, 2, 2.74, 3, 3.76, 4.07];
-;; 		var dets = #[0, 1, 0, 1.7, 0, 0, 0, 0, 0, 0, 0];
-;; 		var doneActionEnv = EnvGen.ar(Env.linen(0, dur, 0), gate, doneAction: 2);
-;; 		var src = Mix.fill(11, {|i|
-;; 			var env = EnvGen.ar(Env.perc(0.005, dur*durs[i], amps[i], -4.5), gate);
-;; 			SinOsc.ar(freq*frqs[i] + dets[i], 0, amp*env);
-;; 		});
-;; 		src = src * doneActionEnv * 0.5; // make sure it releases node after the end.
-;; 		Out.ar(out, Pan2.ar(src, pan));
-;; 	}).add;
-
-(definst risset [out  0, pan  0, freq  400, amp  0.1, dur  2, gate  1]
-  (let
-      [
-       amps  [1, 0.67, 1, 1.8, 2.67, 1.67, 1.46, 1.33, 1.33, 1, 1.33]
-       durs  [1, 0.9, 0.65, 0.55, 0.325, 0.35, 0.25, 0.2, 0.15, 0.1, 0.075]
-       frqs  [0.56, 0.56, 0.92, 0.92, 1.19, 1.7, 2, 2.74, 3, 3.76, 4.07]
-       dets  [0, 1, 0, 1.7, 0, 0, 0, 0, 0, 0, 0]
-       doneActionEnv  (env-gen(lin 0, dur, 0), gate, :action FREE)
-
-
-       src  (mix (map (fn [ampi duri frqsi detsi]
-                        (* amp (env-gen(perc 0.005, (* dur duri), ampi, -4.5), gate)
-                           (sin-osc (+ (* freq frqsi)  detsi, 0, (* amp 0.1))))) ;;0.1 should be amp
-                      amps durs frqs dets))
-       src (* doneActionEnv src 0.5)
-       ]
-    [src src]
-    ))
-;;sounds nice with some echo and chorus
-;;(risset :freq 100 :amp 0.5)(risset :freq 800 :amp 0.1)
-
-;;;;;;;       
-
-;; playing with sync-saw
-;;(demo [(sync-saw 50 (* 50 (line 1 1.5 1)) ) (sync-saw 51 (* 51 (line 1 1.5 1)) )])
-
-;; i want to make a string sound
-;;https://www.attackmagazine.com/technique/tutorials/analogue-style-string-synthesis/2/
-;; my attempt sounds nothing like theirs :( but it sounds nice anyway
-(definst mystr [freq 440]
-  (let
-      [fenv   (env-gen (perc 0.5 5) :action FREE)
-       freqlfo  (lin-lin (lf-tri:kr  3.4) -1 1 1 1.01)
-       apulsel (pulse:ar (* freqlfo freq) (lin-lin (sin-osc:kr 6) -1 1 0.5 0.6  ))
-       apulser (pulse:ar (* freqlfo freq) (lin-lin (sin-osc:kr 6) -1 1 0.5 0.8  ))       
-       asaw1 (lf-tri:ar (* 2 (* freqlfo freq)))
-       asaw2 (lf-tri:ar (/ (* freqlfo freq) 2))
-       srcl (+  (* 0.1 asaw1)  (* 0.1 asaw1)
-                apulsel)
-       srcr (+  (* 0.1 asaw1)  (* 0.1 asaw1)
-                apulser)
-
-       srcl (rlpf srcl (* fenv 1500) 2 )
-       srcr (rlpf srcr (* fenv 1500) 2 )
-       ]
-    [srcl srcr]))
 
 (defn mystr2 [f] (mystr f)(mystr (* 2 f))(mystr (* 4 f) )(mystr (* 8 f)))
 (comment
@@ -1684,43 +1291,6 @@
 
 ;;(demo (+ (* 0.1 (saw:ar 880))(rlpf (pulse:ar 440 (lin-lin (sin-osc:kr 6) -1 1 0.5 0.55  )) 1500 1 )))
 
-;;now i want a rim shot
-;; https://www.freesound.org/people/Sajmund/sounds/132418/
-;; again my rimshot sounds nothing like i want it to
-(definst rimshot
-  [;freq   100
-   amp    0.3
-   decay  0.1]
-  (let [env  (env-gen (adsr-ng :attack 0 :attack-level 1 :decay 0.1 :level 0.01 :sustain 0.001 :release 2 ) :action FREE)
-        fenv (lin-lin env 1 0 1800 1);(* freq 1.5) (/ freq 1.5))
-        snd0 (white-noise);(white-noise:ar)
-        snd (lpf snd0 fenv)
-        snd1 (* 0.1 (bpf snd0 300 4))
-        snd2 (* 0.1 (bpf snd0 1000 4))
-        snd3 (* 0.1 (bpf snd0 1800 4))
-
-        ]
-    (* (+ snd
-          snd1
-          snd2
-          snd3
-          ) env amp)))
-;;(rimshot)
-;;(snare)
-
-;; now i want to make a sound like a percussive bass, with a certain freq env
-(definst tsts [freq 110]
-  (let [
-        env  (env-gen (perc 0.01 0.5)  :action FREE)
-        fenv (env-gen (lin 0.5 0.5 0.5 0.5))
-        src  (pulse:ar freq fenv)
-        src2  (formlet src (/ freq 2) 0.01 0.05)
-        src (+ (* 0.5 src2) src)
-        src  (* env src)
-
-        ]
-    [src src]
-    ))
 (seq/set-drums {
                  :V (fn [x] (tsts (/  x 1)))
                  :B (fn [x] (electro-kick) (dance-kick))
@@ -1963,24 +1533,7 @@
   (stop)
 )
 
-(definst noise-flute [freq 880
-                      amp 0.5
-                      attack 0.4
-                      decay 0.5
-                      sustain 0.8
-                      release 1
-                      gate 1
-                      out 0
-                      rq 0.1]
-  (let [env  (env-gen (adsr attack decay sustain release) gate :action FREE)
-        sig (white-noise)
-        sig (resonz sig freq rq)
-        sig  (* env sig)
-        sig2 (sin-osc freq)
-        sig (+ sig (* 0.1 sig2))
-        ]
 
-    sig))
 
 (seq/set-beat  {
                    :B '[d - ]
@@ -2025,6 +1578,7 @@
     (inst-fx! noise-flute fx-echo)    
     (ctl sf :freq 2000)
     (ctl sf :rq 0.9)
+    (ctl sf :rq 0.01)
     (kill sf)
     (kill noise-flute)
 
@@ -2038,6 +1592,95 @@
     (stop)
 )
 
+;; glissando http://chatley.com/posts/10-28-2011/overtone/
+(comment
+
+  (definst square-wave [freq 440] (square freq))
+
+(def times (take 220 (iterate #(+ 30 %) 0)))
+
+(defn change-pitch [t f inst] (at (+ t (now)) (ctl inst :freq f)))
+
+(defn falling-pitches [start] (take (/ start 2) (iterate dec start)))
+(defn rising-pitches [start] (take start (iterate inc start)))
+
+(defn slide [pitches inst] (map (fn [x y] (change-pitch x y inst)) times pitches))
+
+(square-wave)
+(slide (falling-pitches 440) square-wave)
+(slide (falling-pitches 440) noise-flute)
+(slide (rising-pitches 220) noise-flute) 
+(slide (rising-pitches 220) square-wave)
+(stop)
+)
+
+(seq/set-beat  {
+                :B  '[d - - ]
+;               :BL '[- [:c2 100] [:c2 100] [:c2 200] - [:c2 100] [:c2 100] [:c2 1000] - [:c2 100] [:c2 1000] [:c2 100]]
+                { :voice :BL :seq 2} '[- [:c2 100] [:c2 100] [:c2 130] - [:c2 100] [:c2 100] [:c2 120] - [:c2 100] [:c2 110] [:c2 100]]
+;               { :voice :BL :seq 3} '[- [:c3 110] [:c3 110] [:c3 140] - [:c3 110] [:c3 110] [:c3 130] - [:c3 110] [:c3 120] [:c3 110]]                                
+                ;;                :BT '[- :c3 - - - - -  ]
+;;                :BT '[- - - - - - - :c3 - - :c3 -]                
+                ;;         { :voice :H :il 1} '[e c c e c e]
+                })
+
+(seq/set-drums {
+                :B (fn [x]
+                     (cond
+                       (= 'c x)(electro-kick)
+                       (= 'o x) (dance-kick)
+                       (= 'd x) (dub-kick)
+                       :else (do (electro-kick) (dance-kick)))
+                     )
+                :H (fn [x] (cond
+                            (= 'e x)(electro-hat)
+                            (= 'c x)(closed-hat)
+                            (= 'o x)(open-hat :amp 1 :t 0.1 :low 10000 :hi  2000  )
+                            :else (open-hat)))
+                :C (fn [x] (clap))
+                :BL (fn [x c]  (mytb303 :amp 0.3  :attack 0.05 :release 0.01 :decay 0.1 :sustain 0.8 :cutoff (+ -20 c) :r 0.001 :wave 2 :note (note x)) )
+                :BT (fn [x] (tsts :amp 0.1 :freq (midi->hz(note x))))
+    :S (fn [x] (snare :amp 0.7 :freq 880 :decay 20 ))
+                   })
+
+(seq/set-beat  {
+                :B  '[c - - -]
+                ;                :S  '[-  c - ] ;; i want to alt between [-  c - ] [c  c - ] [c  c c ]
+               :S (flatten (map  #(repeat 3 %)  '([-  c - ] [c  c - ] [c  c c ])))
+                :BL '[- [:c2 120] [:c2 120]  [:c2 120] ]
+                { :voice :H :il 3} '[c c - c e c c -]
+;                :BT '[- :c3 :c2 :c3 ]
+                })
+
+(comment
+  ;;maybe some throat singing backdrop?
+  ;;https://www.freesound.org/people/Metzik/sounds/244155/
+  ;; or this one: http://www.freesound.org/people/djgriffin/sounds/15488/
+  ;; lyrics could be "transheimat:the grid"
+
+  ;; for "the grid" also electric noises, and some moog bleeps
+  ;; electricity
+  ;;https://www.freesound.org/people/Halleck/sounds/19486/
+  (seq/set-metro :bpm 300 :il 3)
+  (inst-fx! mytb303 fx-chorus)
+  (inst-fx! tsts fx-chorus)  
+  (inst-fx! mytb303 fx-echo)
+  (inst-fx! mytb303 fx-distortion-tubescreamer)
+  (inst-fx! mytb303 fx-distortion2)
+    (inst-fx! mytb303 fx-feedback-distortion)
+  (clear-fx mytb303)    
+  (inst-fx! tsts fx-chorus)
+  (inst-fx! tsts fx-echo)
+  (clear-fx tsts)      
+
+  (seq/set-metro :bpm 500 :il 3)  
+  (inst-fx! closed-hat fx-chorus)
+  (inst-fx! electro-hat fx-echo)
+  (clear-fx closed-hat)
+    (clear-fx electro-hat)      
+    (seq/play-metro)
+    (stop)
+)
 
 
 
