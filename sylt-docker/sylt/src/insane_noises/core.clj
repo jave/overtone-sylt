@@ -225,7 +225,7 @@
   (phat-beats metro (metro))
   )
 
-(defn mytb303 []
+(defn mytb303_2 []
   ;;this is dubious now
   ;;  (tb303 50 :wave 3 :amp 10  :cutoff 18)
   )
@@ -268,7 +268,7 @@
 ;; continues on plhat beats
 ;; #+BEGIN_SRC clojure
 (defn simple-beats [m beat-num]
-  (at (m (+ 0 beat-num))   (mytb303) (myh1) (mykick) (myseq 50)
+  (at (m (+ 0 beat-num))   (mytb303_2) (myh1) (mykick) (myseq 50)
       ;;(dream-inc)
       )
   (at (m (+ 0.5 beat-num)) (myh2) (myseq 55))
@@ -1635,6 +1635,7 @@
                 :H (fn [x] (cond
                             (= 'e x)(electro-hat)
                             (= 'c x)(closed-hat)
+                            (= 's x)(snare)
                             (= 'o x)(open-hat :amp 1 :t 0.1 :low 10000 :hi  2000  )
                             :else (open-hat)))
                 :C (fn [x] (clap))
@@ -1649,7 +1650,7 @@
                :S (flatten (map  #(repeat 3 %)  '([-  c - ] [c  c - ] [c  c c ])))
                 :BL '[- [:c2 120] [:c2 120]  [:c2 120] ]
                 { :voice :H :il 3} '[c c - c e c c -]
-;                :BT '[- :c3 :c2 :c3 ]
+;                :BT '[- :c4 :c3 :c3 ]
                 })
 
 (comment
