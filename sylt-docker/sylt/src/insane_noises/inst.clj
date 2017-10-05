@@ -402,8 +402,6 @@
 
 ;;;;;;;       
 
-;; playing with sync-saw
-;;(demo [(sync-saw 50 (* 50 (line 1 1.5 1)) ) (sync-saw 51 (* 51 (line 1 1.5 1)) )])
 
 ;; i want to make a string sound
 ;;https://www.attackmagazine.com/technique/tutorials/analogue-style-string-synthesis/2/
@@ -531,3 +529,37 @@
       )
 
 )
+
+
+(definst asawbass [freq 440 amp 0.5 gate 1]
+  (let
+      [osfreq  [ (* freq 0.998) (* freq 0.999) (* freq 1) (* freq 1.001)] ;;(lin-lin :in (lf-noise2:kr 0.5) :dstlo 0.98 :dsthi 1.02 )
+       snd (splay (* amp (lf-saw osfreq)))
+       env (env-gen (adsr 1 2 0 0.5) gate  :action FREE )
+       ;;output (lpf snd (+ (* env freq) (* 4 freq)))
+       output snd
+       output (* output env)
+       ]
+    output))
+                  
+;;not too bad like this:
+;;(asawbass 110)(asawbass 220)
+;; and some reverbs and stuffs
+
+;; now for  sync-saw experiments
+;;(demo [(sync-saw 50 (* 50 (line 1 1.5 1)) ) (sync-saw 51 (* 51 (line 1 1.5 1)) )])
+
+(definst asyncsaw
+  [freq 50 amp 0.5 gate 1]
+  (let
+      [env (env-gen (adsr 1 2 0 0.5) gate  :action FREE )
+       syncenv (line 1 1.5 1)
+       saw     (map #(sync-saw (*  (+ freq %)) (*  syncenv (+ % freq))) [0 1 2 3 4 5 6 ])
+    ]
+  (* env (splay saw))))
+
+;; some piano would be nice
+;;(demo (mda-piano 880 ))
+
+;; and sax
+;;(demo (stk-saxofony 110 40 20 10 ))

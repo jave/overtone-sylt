@@ -1358,6 +1358,7 @@
   (seq/play-metro)
   (seq/set-metro :bpm 250)
   (kill buzz)
+  (inst-fx! buzz fx-chorus)
   (inst-fx! vocali fx-echo)
   (clear-fx vocali )
 (stop)
@@ -1583,7 +1584,7 @@
     (kill noise-flute)
 
     (inst-fx! simple-flute fx-chorus)
-                                        ;(inst-fx! simple-flute fx-echo)
+                                        ;(inst-fx! simple-flute fx-echo)w
     (inst-fx! simple-flute fx-distortion-tubescreamer)
     (clear-fx noise-flute)
 
@@ -1607,6 +1608,7 @@
 (defn slide [pitches inst] (map (fn [x y] (change-pitch x y inst)) times pitches))
 
 (square-wave)
+
 (slide (falling-pitches 440) square-wave)
 (slide (falling-pitches 440) noise-flute)
 (slide (rising-pitches 220) noise-flute) 
@@ -1646,12 +1648,18 @@
 
 (seq/set-beat  {
                 :B  '[c - - -]
-                ;                :S  '[-  c - ] ;; i want to alt between [-  c - ] [c  c - ] [c  c c ]
+                ;;:S  '[-  c - ] ;; i want to alt between [-  c - ] [c  c - ] [c  c c ]
                :S (flatten (map  #(repeat 3 %)  '([-  c - ] [c  c - ] [c  c c ])))
                 :BL '[- [:c2 120] [:c2 120]  [:c2 120] ]
                 { :voice :H :il 3} '[c c - c e c c -]
-;                :BT '[- :c4 :c3 :c3 ]
+                ;;:BT '[- :c4 :c3 :c3 ]
                 })
+
+
+(def throat (sample (frp 244155)))
+
+(definst throat2s []
+  (* 2 (play-buf :num-channels 2 :bufnum throat :rate 2)))
 
 (comment
   ;;maybe some throat singing backdrop?
@@ -1674,6 +1682,12 @@
   (inst-fx! tsts fx-echo)
   (clear-fx tsts)      
 
+  (throat2s)
+  (kill throat2s)
+  (inst-fx! throat2s fx-chorus)
+  (inst-fx! throat2s fx-reverb)
+  (clear-fx throat2s)
+  
   (seq/set-metro :bpm 500 :il 3)  
   (inst-fx! closed-hat fx-chorus)
   (inst-fx! electro-hat fx-echo)
@@ -1683,6 +1697,143 @@
     (stop)
 )
 
+;; a loop i thought of on the palma flight
+(seq/set-beat  {
+                ;;:B '[x -]
+                :BT '[:c3 :d3 - - :c3 :d3 :c3 :d3
+                      ;;the transpose isnt supposed to be 1 octave, more like 2 steps
+                      ;; and i cant figure out how to transpose things!
+                      ;; this seems to work (into [] (map #(find-note-name (+ 1 (note %))) '[:c3 :c4]))
+                      :c2 :d2 - - :c2 :d2 :c2 :d2  ]
+                })
+
+
+
+(comment
+  (seq/set-metro :bpm 200 :il 3)
+  (inst-fx! tsts fx-echo)
+  (inst-fx! tsts fx-distortion2)
+  (inst-fx! tsts fx-chorus)
+  (inst-fx! tsts fx-distortion-tubescreamer)  
+  (clear-fx tsts)
+    (seq/play-metro)
+    (stop)
+)
+
+
+;; a loop i thought of "dancing panda in the woods"
+;; a panda dancing
+(seq/set-beat  {
+              :B '[- - - - x - - x]
+                :F '[:b2 :d3 :c#3 :c#3 :c0 :c#3 :e3 :c0]
+               :RO '[- - - - [70 0.9] - - [70 0.9]]
+                ;;id like 2 rissets with different effect chains, how?
+;                {:voice :RO :seq 2 } '[- - - - [2070 0.9] - - [1070 0.9]]
+                ;;               :H '[c c  - ]
+                ;;atm i do this with noiseflute, :c1 is because i dont know how to do long notes, so i make a low jump instead...
+                ;;imagine the panda dancing now, in an eery moonlit forest
+                ;;its not the panda of kids movies, its a scary panda!
+                })
+
+(defsynth fx-myamp
+  "amp experiment."
+  [bus 0 amp 1.5]
+  (let [source (in bus)]
+    (replace-out bus (* amp source))))
+
+(comment
+  (seq/set-metro :bpm 200 :il 3)
+  (def sf (noise-flute :freq 20))
+
+  ;;the effects go with the high freq rissets
+  (inst-fx! risset fx-echo)
+  (inst-fx! risset fx-distortion2)
+  (inst-fx! risset fx-chorus)
+  (inst-fx! risset fx-distortion-tubescreamer)
+  (inst-fx! risset fx-reverb)    
+  (clear-fx risset)
+  
+  (inst-fx! noise-flute fx-distortion-tubescreamer)
+  (inst-fx! noise-flute fx-chorus)
+  (inst-fx! noise-flute fx-reverb)  
+  (inst-fx! noise-flute fx-myamp )
+  
+  (fx-myamp :bus 0 :amp 2) ;; i want to have the amp arg, but how do i know bus 0 is noise-flute?
+  (ctl fx-myamp :amp 2);;dont work
+  
+  (clear-fx noise-flute)  
+
+    (seq/play-metro)
+    (stop)
+
+    
+)
+
+;;test some new insts for a change
+(seq/set-drums
+ {
+  :S1 (fn [x] (asawbass x))
+  :S2 (fn [x] (asyncsaw x))
+  }
+ )
+
+(seq/set-beat
+ {
+;  :S1 '[220 -  440 - 880 - 1760 -]
+  :S2 '[- 60 - - ]
+})
+
+;;(demo (mda-piano 440 ))
+;;(piano)
+(comment
+  (seq/set-metro :bpm 2000 :il 3)
+  (inst-fx! asyncsaw fx-distortion-tubescreamer )
+  (inst-fx! asawbass fx-distortion-tubescreamer )  
+    (seq/play-metro)
+    (stop)
+
+    
+)
+
+;;gating experiments
+  (definst sin-gate [freq 440 attack 0.01 sustain 0.4 release 0.1 vol 0.4 gate 1] 
+    (*
+     ;;env    (env-gen (adsr att decay sus rel) gate :action FREE)
+              (env-gen (adsr attack sustain release)  gate :action FREE)
+     ;;(sin-osc freq)
+     (sin-osc freq)
+     vol))
+;;(sin-gate)
+;;(ctl sin-gate :gate 0)
+
+(seq/set-drums
+ {
+  :G
+  (fn [& arg]
+    ;;    (println arg)
+    ;;(S) - stop the tone
+    ;;(:freq 440 :gate 1) - call the inst with these args, gate 0 the prev note
+    ;;- (dash) - do nothing, which means the prev note lives on due to gate
+      (cond
+        (= '(S) arg) (ctl sin-gate :gate 0)
+        (sequential? arg) (do (ctl sin-gate :gate 0) (apply sin-gate arg))
+          ) )
+  ;;:G sin-gate
+  }
+ )
+
+(seq/set-beat
+ {
+  :G '[[:freq 220 ]   -  [:freq 440 ] S [:freq 880] S [:freq 1760] S]
+})
+
+(comment
+  (seq/set-metro :bpm 200 :il 3)
+  (seq/play-metro)
+  (stop)
+  (inst-fx! sin-gate fx-distortion-tubescreamer )
+  (clear-fx  sin-gate)
+)
 
 
 ;; some process stuff for use in the networked case
